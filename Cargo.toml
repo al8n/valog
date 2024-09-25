@@ -1,13 +1,13 @@
 [package]
-name = "template-rs"
+name = "valog"
 version = "0.0.0"
 edition = "2021"
-repository = "https://github.com/al8n/template-rs"
-homepage = "https://github.com/al8n/template-rs"
-documentation = "https://docs.rs/template-rs"
-description = "A template for creating Rust open-source repo on GitHub"
+repository = "https://github.com/al8n/valog"
+homepage = "https://github.com/al8n/valog"
+documentation = "https://docs.rs/valog"
+description = "A lock-free, generic, lightweight value log."
 license = "MIT OR Apache-2.0"
-rust-version = "1.73"
+rust-version = "1.81.0"
 
 [[bench]]
 path = "benches/foo.rs"
@@ -15,11 +15,15 @@ name = "foo"
 harness = false
 
 [features]
-default = ["std"]
-alloc = []
-std = []
+default = ["memmap", "rarena-allocator/default"]
+alloc = ["rarena-allocator/alloc"]
+std = ["rarena-allocator/std"]
+memmap = ["std", "rarena-allocator/memmap"]
 
 [dependencies]
+dbutils = { version = "0.4", default-features = false, features = ["crc32fast"] }
+rarena-allocator = { version = "0.3", default-features = false }
+viewit = "0.1.5"
 
 [dev-dependencies]
 criterion = "0.5"

@@ -1,4 +1,4 @@
-//! A template for creating Rust open-source repo on GitHub
+#![doc = include_str!("../README.md")]
 #![cfg_attr(not(any(feature = "std", test)), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
@@ -10,17 +10,23 @@ extern crate alloc as std;
 #[cfg(all(feature = "std", not(feature = "alloc")))]
 extern crate std;
 
-/// template
-pub fn it_works() -> usize {
-  4
-}
+/// Value log implementation for concurrent environment.
+pub mod sync;
 
-#[cfg(test)]
-mod tests {
-  use super::*;
+/// Value log implementation for single-threaded environment.
+pub mod unsync;
 
-  #[test]
-  fn test_works() {
-    assert_eq!(it_works(), 4);
-  }
-}
+mod log;
+pub use log::*;
+
+/// Options for configuring the value log.
+pub mod options;
+pub use options::Builder;
+
+/// Error types.
+pub mod error;
+
+dbutils::builder!(
+  /// The value builder for building a value in place when inserting into the value log.
+  pub ValueBuilder(u32)
+);
