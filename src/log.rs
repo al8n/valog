@@ -389,3 +389,20 @@ where
     self.log.read_generic::<T>(offset, len)
   }
 }
+
+// Safety: although the `rarena_allocator::unsync::Arena` is not `Send` and `Sync`,
+// the `ImmutableValueLog` is `Send` and `Sync` because it is not possible to
+// mutate the `Arena` from outside of the `ImmutableValueLog`.
+// And the `raena_allocator::unsync::Arena` has the same memory layout as `rarena_allocator::sync::Arena`.
+unsafe impl<T, I, C> Send for ImmutableGenericValueLog<T, I, C>
+where
+  C: Send,
+  I: Send,
+{
+}
+unsafe impl<T, I, C> Sync for ImmutableGenericValueLog<T, I, C>
+where
+  C: Sync,
+  I: Sync,
+{
+}
