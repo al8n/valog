@@ -206,9 +206,9 @@ where
   unsafe {
     let ptr = NonNull::new_unchecked(buf.as_mut_ptr());
     let mut vacant_buf = VacantBuffer::new(value_len as usize, ptr);
-    let checksum = l.checksum(&vacant_buf);
-
     builder(&mut vacant_buf).map_err(Either::Left)?;
+
+    let checksum = l.checksum(&vacant_buf);
     buf.put_u64_le_unchecked(checksum);
   }
 

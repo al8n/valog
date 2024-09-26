@@ -12,8 +12,7 @@ pub trait LogReader: Log {
   /// let log = Builder::new().with_capacity(1024).alloc::<ValueLog>(0).unwrap();
   ///
   /// let vp = log.insert(b"Hello, valog!").unwrap();
-  ///
-  /// let data = unsafe { log.read(vp.offset(), vp.size()).unwrap() };
+  /// let data = log.read(vp.offset(), vp.size()).unwrap();
   /// assert_eq!(data, b"Hello, valog!");
   /// ```
   fn read(&self, offset: u32, len: u32) -> Result<&[u8], Error> {
