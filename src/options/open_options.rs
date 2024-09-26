@@ -3,7 +3,7 @@ use rarena_allocator::{either::Either, Allocator};
 use super::{
   write_header, Builder, Options, CURRENT_VERSION, HEADER_SIZE, MAGIC_TEXT, MAGIC_TEXT_SIZE,
 };
-use crate::sealed::{Constructor, Frozen, Mutable};
+use crate::{Constructor, Frozen, Mutable};
 
 #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
 fn bad_magic_text() -> std::io::Error {
@@ -475,19 +475,19 @@ impl<S> Builder<S> {
   /// use valog::{sync, unsync, Builder};
   ///
   /// // Create a sync in-memory value log.
-  /// let map = Builder::new(1u32).with_capacity(1024).map_anon::<sync::ValueLog<u32>>().unwrap();
+  /// let map = Builder::new().with_capacity(1024).map_anon::<sync::ValueLog>(0u32).unwrap();
   ///
   /// // Create a unsync in-memory value log.
-  /// let arena = Builder::new().with_capacity(1024).map_anon::<unsync::ValugLog<u32>>().unwrap();
+  /// let arena = Builder::new().with_capacity(1024).map_anon::<unsync::ValueLog>(0u32).unwrap();
   /// ```
   ///
   /// [`Builder::alloc`]: #method.alloc
   #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
   #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
   #[inline]
-  pub fn map_anon<C, I>(self, fid: I) -> std::io::Result<C>
+  pub fn map_anon<C>(self, fid: C::Id) -> std::io::Result<C>
   where
-    C: Constructor<Id = I, Checksumer = S> + Mutable,
+    C: Constructor<Checksumer = S> + Mutable,
   {
     let Self { opts, cks } = self;
     let unify = opts.unify;
@@ -522,45 +522,105 @@ impl<S> Builder<S> {
   /// Opens a read-only map which backed by file-backed memory map.
   ///
   /// ## Safety
-  /// - If `T` is a `TrailedMap`, then trailer type must be the same as the one used to create the map.
-  /// - The `C` must be the same as the one used to create the map.
   /// - All file-backed memory map constructors are marked `unsafe` because of the potential for
   ///   *Undefined Behavior* (UB) using the map if the underlying file is subsequently modified, in or
   ///   out of process. Applications must consider the risk and take appropriate precautions when
   ///   using file-backed maps. Solutions such as file permissions, locks or process-private (e.g.
   ///   unlinked) files exist but are platform specific and limited.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync, ImmutableValueLog, Builder};
+  ///
+  /// let dir = tempfile::tempdir().unwrap();
+  /// let map = unsafe {
+  ///   Builder::new()
+  ///     .with_capacity(1024)
+  ///     .with_create_new(true)
+  ///     .with_read(true)
+  ///     .with_write(true)
+  ///     .map_mut::<sync::ValueLog, _>(
+  ///       dir.path().join("map_example.vlog"),
+  ///       1u32
+  ///     )
+  ///     .unwrap()
+  /// };
+  ///
+  /// drop(map);
+  ///
+  /// let map = unsafe {
+  ///   Builder::new()
+  ///     .with_read(true)
+  ///     .map::<ImmutableValueLog, _>(
+  ///       dir.path().join("map_example.vlog"),
+  ///       1u32,
+  ///     )
+  ///    .unwrap()
+  /// };
+  /// ```
   #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
   #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
   #[inline]
-  pub unsafe fn map<C, I, P: AsRef<std::path::Path>>(self, path: P, fid: I) -> std::io::Result<C>
+  pub unsafe fn map<C, P: AsRef<std::path::Path>>(self, path: P, fid: C::Id) -> std::io::Result<C>
   where
-    C: Constructor<Id = I, Checksumer = S> + Frozen,
+    C: Constructor<Checksumer = S> + Frozen,
   {
     self
-      .map_with_path_builder::<C, I, _, ()>(|| Ok(path.as_ref().to_path_buf()), fid)
+      .map_with_path_builder::<C, _, ()>(|| Ok(path.as_ref().to_path_buf()), fid)
       .map_err(Either::unwrap_right)
   }
 
   /// Opens a read-only map which backed by file-backed memory map with a path builder.
   ///
   /// ## Safety
-  /// - If `T` is a `TrailedMap`, then trailer type must be the same as the one used to create the map.
-  /// - The `C` must be the same as the one used to create the map.
   /// - All file-backed memory map constructors are marked `unsafe` because of the potential for
   ///   *Undefined Behavior* (UB) using the map if the underlying file is subsequently modified, in or
   ///   out of process. Applications must consider the risk and take appropriate precautions when
   ///   using file-backed maps. Solutions such as file permissions, locks or process-private (e.g.
   ///   unlinked) files exist but are platform specific and limited.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync, ImmutableValueLog, Builder};
+  ///
+  /// let dir = tempfile::tempdir().unwrap();
+  /// let map = unsafe {
+  ///   Builder::new()
+  ///     .with_capacity(1024)
+  ///     .with_create_new(true)
+  ///     .with_read(true)
+  ///     .with_write(true)
+  ///     .map_mut::<sync::ValueLog, _>(
+  ///       dir.path().join("map_with_path_builder_example.vlog"),
+  ///       1u32
+  ///     )
+  ///     .unwrap()
+  /// };
+  ///
+  /// drop(map);
+  ///
+  /// let map = unsafe {
+  ///   Builder::new()
+  ///     .with_read(true)
+  ///     .map_with_path_builder::<ImmutableValueLog, _, ()>(
+  ///       || Ok(dir.path().join("map_with_path_builder_example.vlog")),
+  ///       1u32,
+  ///     )
+  ///    .unwrap()
+  /// };
+  /// ```
   #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
   #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
   #[inline]
-  pub unsafe fn map_with_path_builder<C, I, PB, E>(
+  pub unsafe fn map_with_path_builder<C, PB, E>(
     self,
     path_builder: PB,
-    fid: I,
+    fid: C::Id,
   ) -> Result<C, Either<E, std::io::Error>>
   where
-    C: Constructor<Id = I, Checksumer = S> + Frozen,
+    C: Constructor<Checksumer = S> + Frozen,
     PB: FnOnce() -> Result<std::path::PathBuf, E>,
   {
     let Self { opts, cks } = self;
@@ -594,67 +654,87 @@ impl<S> Builder<S> {
       })
   }
 
-  #[inline]
-  fn check_header(buf: &[u8], magic_version: u16) -> std::io::Result<u16> {
-    if buf[..MAGIC_TEXT_SIZE] != MAGIC_TEXT {
-      return Err(bad_magic_text());
-    }
-
-    let magic_version_from_buf =
-      u16::from_le_bytes(buf[MAGIC_TEXT_SIZE..HEADER_SIZE].try_into().unwrap());
-    if magic_version_from_buf != magic_version {
-      return Err(bad_magic_version());
-    }
-
-    Ok(magic_version_from_buf)
-  }
-
   /// Creates a new map or reopens a map which backed by a file backed memory map.
   ///
   /// ## Safety
-  ///
-  /// - If trying to reopen a map and `T` is a `TrailedMap`, then trailer type must be the same as the one used to create the map.
-  /// - If trying to reopen a map, the `C` must be the same as the one used to create the map.
   /// - All file-backed memory map constructors are marked `unsafe` because of the potential for
   ///   *Undefined Behavior* (UB) using the map if the underlying file is subsequently modified, in or
   ///   out of process. Applications must consider the risk and take appropriate precautions when
   ///   using file-backed maps. Solutions such as file permissions, locks or process-private (e.g.
   ///   unlinked) files exist but are platform specific and limited.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync, Builder};
+  ///
+  /// let dir = tempfile::tempdir().unwrap();
+  /// let map = unsafe {
+  ///   Builder::new()
+  ///     .with_capacity(1024)
+  ///     .with_create_new(true)
+  ///     .with_read(true)
+  ///     .with_write(true)
+  ///     .map_mut::<sync::ValueLog, _>(
+  ///       dir.path().join("map_mut_example.vlog"),
+  ///       1u32
+  ///     )
+  ///     .unwrap()
+  /// };
+  /// ```
   #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
   #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
   #[inline]
-  pub unsafe fn map_mut<C, I, P: AsRef<std::path::Path>>(
+  pub unsafe fn map_mut<C, P: AsRef<std::path::Path>>(
     self,
     path: P,
-    fid: I,
+    fid: C::Id,
   ) -> std::io::Result<C>
   where
-    C: Constructor<Id = I, Checksumer = S> + Mutable,
+    C: Constructor<Checksumer = S> + Mutable,
   {
     self
-      .map_mut_with_path_builder::<C, I, _, ()>(|| Ok(path.as_ref().to_path_buf()), fid)
+      .map_mut_with_path_builder::<C, _, ()>(|| Ok(path.as_ref().to_path_buf()), fid)
       .map_err(Either::unwrap_right)
   }
 
   /// Creates a new map or reopens a map which backed by a file backed memory map with path builder.
   ///
-  /// # Safety
-  /// - If trying to reopen a map and `T` is a `TrailedMap`, then trailer type must be the same as the one used to create the map.
-  /// - If trying to reopen a map, the `C` must be the same as the one used to create the map.
+  /// ## Safety
   /// - All file-backed memory map constructors are marked `unsafe` because of the potential for
   ///   *Undefined Behavior* (UB) using the map if the underlying file is subsequently modified, in or
   ///   out of process. Applications must consider the risk and take appropriate precautions when
   ///   using file-backed maps. Solutions such as file permissions, locks or process-private (e.g.
   ///   unlinked) files exist but are platform specific and limited.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync, Builder};
+  ///
+  /// let dir = tempfile::tempdir().unwrap();
+  /// let map = unsafe {
+  ///   Builder::new()
+  ///     .with_capacity(1024)
+  ///     .with_create_new(true)
+  ///     .with_read(true)
+  ///     .with_write(true)
+  ///     .map_mut_with_path_builder::<sync::ValueLog, _, ()>(
+  ///       || Ok(dir.path().join("map_mut_with_path_builder_example.vlog")),
+  ///       1u32
+  ///     )
+  ///     .unwrap()
+  /// };
+  /// ```
   #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
   #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
-  pub unsafe fn map_mut_with_path_builder<C, I, PB, E>(
+  pub unsafe fn map_mut_with_path_builder<C, PB, E>(
     self,
     path_builder: PB,
-    fid: I,
+    fid: C::Id,
   ) -> Result<C, Either<E, std::io::Error>>
   where
-    C: Constructor<Id = I, Checksumer = S> + Mutable,
+    C: Constructor<Checksumer = S> + Mutable,
     PB: FnOnce() -> Result<std::path::PathBuf, E>,
   {
     let Self { opts, cks } = self;
@@ -695,6 +775,21 @@ impl<S> Builder<S> {
           Ok(log)
         }
       })
+  }
+
+  #[inline]
+  fn check_header(buf: &[u8], magic_version: u16) -> std::io::Result<u16> {
+    if buf[..MAGIC_TEXT_SIZE] != MAGIC_TEXT {
+      return Err(bad_magic_text());
+    }
+
+    let magic_version_from_buf =
+      u16::from_le_bytes(buf[MAGIC_TEXT_SIZE..HEADER_SIZE].try_into().unwrap());
+    if magic_version_from_buf != magic_version {
+      return Err(bad_magic_version());
+    }
+
+    Ok(magic_version_from_buf)
   }
 }
 

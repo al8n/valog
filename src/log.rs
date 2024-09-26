@@ -20,6 +20,28 @@ pub(super) mod sealed;
 
 const CHECKSUM_LEN: usize = 8;
 
+/// A trait that means can be constructed to a value log.
+pub trait Constructor: sealed::Sealed {
+  /// The checksumer used by the log.
+  type Checksumer;
+  /// The file id type.
+  type Id;
+
+  /// Constructs a value log.
+  fn construct(
+    fid: Self::Id,
+    allocator: Self::Allocator,
+    checksumer: Self::Checksumer,
+    options: Options,
+  ) -> Self;
+}
+
+/// A marker trait which means that the log is frozen and cannot be modified.
+pub trait Frozen {}
+
+/// A marker trait which means that the log is mutable and can be modified.
+pub trait Mutable {}
+
 /// The pointer to the value in the log.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ValuePointer<I> {
@@ -77,7 +99,7 @@ where
   }
 }
 
-impl<I, A, C> sealed::Constructor for ValueLog<I, A, C>
+impl<I, A, C> Constructor for ValueLog<I, A, C>
 where
   A: Allocator,
 {
@@ -136,11 +158,11 @@ where
 {
 }
 
-impl<I, A, C> sealed::Mutable for ValueLog<I, A, C> {}
+impl<I, A, C> Mutable for ValueLog<I, A, C> {}
 
 /// The immutable value log implementation.
 #[derive(Debug, Clone)]
-pub struct ImmutableValueLog<I, C = Crc32> {
+pub struct ImmutableValueLog<I = u32, C = Crc32> {
   fid: I,
   allocator: rarena_allocator::unsync::Arena,
   checksumer: C,
@@ -200,7 +222,7 @@ where
   }
 }
 
-impl<I, C> sealed::Constructor for ImmutableValueLog<I, C> {
+impl<I, C> Constructor for ImmutableValueLog<I, C> {
   type Checksumer = C;
   type Id = I;
 
@@ -220,7 +242,7 @@ impl<I, C> sealed::Constructor for ImmutableValueLog<I, C> {
   }
 }
 
-impl<I, C> sealed::Frozen for ImmutableValueLog<I, C> {}
+impl<I, C> Frozen for ImmutableValueLog<I, C> {}
 
 /// Generic value log.
 pub struct GenericValueLog<T, I, A, C = Crc32> {
@@ -240,9 +262,9 @@ where
   }
 }
 
-impl<T, I, A, C> sealed::Mutable for GenericValueLog<T, I, A, C> {}
+impl<T, I, A, C> Mutable for GenericValueLog<T, I, A, C> {}
 
-impl<T, I, A, C> sealed::Constructor for GenericValueLog<T, I, A, C>
+impl<T, I, A, C> Constructor for GenericValueLog<T, I, A, C>
 where
   A: Allocator,
 {
@@ -336,9 +358,9 @@ impl<T, I, C> sealed::Sealed for ImmutableGenericValueLog<T, I, C> {
   }
 }
 
-impl<T, I, C> sealed::Frozen for ImmutableGenericValueLog<T, I, C> {}
+impl<T, I, C> Frozen for ImmutableGenericValueLog<T, I, C> {}
 
-impl<T, I, C> sealed::Constructor for ImmutableGenericValueLog<T, I, C> {
+impl<T, I, C> Constructor for ImmutableGenericValueLog<T, I, C> {
   type Checksumer = C;
   type Id = I;
 

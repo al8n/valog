@@ -175,10 +175,10 @@ impl Options {
     self
   }
 
-  /// Set the magic version of the [`Log`](crate::traits::Log).
+  /// Set the magic version of the value log.
   ///
-  /// This is used by the application using [`Log`](crate::traits::Log)
-  /// to ensure that it doesn't open the [`Log`](crate::traits::Log)
+  /// This is used by the application using value log
+  /// to ensure that it doesn't open the value log
   /// with incompatible data format.
   ///  
   /// The default value is `0`.
@@ -196,7 +196,7 @@ impl Options {
     self
   }
 
-  /// Set the [`Freelist`] kind of the [`Log`](crate::traits::Log).
+  /// Set the [`Freelist`] kind of the value log.
   ///
   /// The default value is [`Freelist::Optimistic`].
   ///
@@ -213,13 +213,13 @@ impl Options {
     self
   }
 
-  /// Set if use the unify memory layout of the [`Log`](crate::traits::Log).
+  /// Set if use the unify memory layout of the value log.
   ///
-  /// File backed [`Log`](crate::traits::Log) has different memory layout with other kind backed [`Log`](crate::traits::Log),
-  /// set this value to `true` will unify the memory layout of the [`Log`](crate::traits::Log), which means
-  /// all kinds of backed [`Log`](crate::traits::Log) will have the same memory layout.
+  /// File backed value log has different memory layout with other kind backed value log,
+  /// set this value to `true` will unify the memory layout of the value log, which means
+  /// all kinds of backed value log will have the same memory layout.
   ///
-  /// This value will be ignored if the [`Log`](crate::traits::Log) is backed by a file backed memory map.
+  /// This value will be ignored if the value log is backed by a file backed memory map.
   ///
   /// The default value is `false`.
   ///
@@ -380,13 +380,13 @@ impl Options {
     }
   }
 
-  /// Get if use the unify memory layout of the [`Log`](crate::traits::Log).
+  /// Get if use the unify memory layout of the value log.
   ///
-  /// File backed [`Log`](crate::traits::Log) has different memory layout with other kind backed [`Log`](crate::traits::Log),
-  /// set this value to `true` will unify the memory layout of the [`Log`](crate::traits::Log), which means
-  /// all kinds of backed [`Log`](crate::traits::Log) will have the same memory layout.
+  /// File backed value log has different memory layout with other kind backed value log,
+  /// set this value to `true` will unify the memory layout of the value log, which means
+  /// all kinds of backed value log will have the same memory layout.
   ///
-  /// This value will be ignored if the [`Log`](crate::traits::Log) is backed by a file backed memory map.
+  /// This value will be ignored if the value log is backed by a file backed memory map.
   ///  
   /// The default value is `false`.
   ///
@@ -404,10 +404,10 @@ impl Options {
     self.unify
   }
 
-  /// Get the magic version of the [`Log`](crate::traits::Log).
+  /// Get the magic version of the value log.
   ///
-  /// This is used by the application using [`Log`](crate::traits::Log)
-  /// to ensure that it doesn't open the [`Log`](crate::traits::Log)
+  /// This is used by the application using value log
+  /// to ensure that it doesn't open the value log
   /// with incompatible data format.
   ///
   /// The default value is `0`.
@@ -426,7 +426,7 @@ impl Options {
     self.magic_version
   }
 
-  /// Get the [`Freelist`] kind of the [`Log`](crate::traits::Log).
+  /// Get the [`Freelist`] kind of the value log.
   ///
   /// The default value is [`Freelist::Optimistic`].
   ///

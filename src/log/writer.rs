@@ -1,3 +1,5 @@
+use crate::options::HEADER_SIZE;
+
 use super::*;
 
 /// The value log abstraction.
@@ -6,6 +8,139 @@ where
   Self: Reader,
   Self::Id: CheapClone + core::fmt::Debug,
 {
+  /// Returns the mutable reference to the reserved slice.
+  ///
+  /// ## Safety
+  /// - The caller must ensure that the there is no others accessing reserved slice for either read or write.
+  /// - This method is not thread-safe, so be careful when using it.
+  #[allow(clippy::mut_from_ref)]
+  #[inline]
+  unsafe fn reserved_slice_mut(&self) -> &mut [u8] {
+    let reserved = self.options().reserved();
+    if reserved == 0 {
+      return &mut [];
+    }
+
+    let allocator = self.allocator();
+    let reserved_slice = allocator.reserved_slice_mut();
+    &mut reserved_slice[HEADER_SIZE..]
+  }
+
+  /// Flushes the memory-mapped file to disk.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync::ValueLog, Builder};
+  /// # let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+  /// # std::fs::remove_file(&path);
+  ///
+  /// /// Create a new file without automatic syncing.
+  /// let arena = unsafe {
+  ///   Builder::new()
+  ///     .with_sync(false)
+  ///     .with_create_new(true)
+  ///     .with_read(true)
+  ///     .with_write(true)
+  ///     .with_capacity(100)
+  ///     .map_mut::<ValueLog, _>(&path).unwrap() };
+  ///
+  /// arena.flush().unwrap();
+  /// ```
+  #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
+  #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
+  #[inline]
+  fn flush(&self) -> std::io::Result<()> {
+    self.allocator().flush()
+  }
+
+  /// Flushes the memory-mapped file to disk asynchronously.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync::ValueLog, Builder};
+  /// # let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+  /// # std::fs::remove_file(&path);
+  ///
+  /// /// Create a new file without automatic syncing.
+  /// let log = unsafe {
+  ///   Builder::new()
+  ///     .with_sync(false)
+  ///     .with_create_new(true)
+  ///     .with_read(true)
+  ///     .with_write(true)
+  ///     .with_capacity(100)
+  ///     .map_mut::<ValueLog, _>(&path).unwrap()
+  /// };
+  ///
+  /// log.flush().unwrap();
+  /// ```
+  #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
+  #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
+  #[inline]
+  fn flush_async(&self) -> std::io::Result<()> {
+    self.allocator().flush_async()
+  }
+
+  /// Flushes outstanding memory map modifications in the range to disk.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync::ValueLog, Builder};
+  /// # let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+  /// # std::fs::remove_file(&path);
+  ///
+  /// /// Create a new file without automatic syncing.
+  /// let log = unsafe {
+  ///   Builder::new()
+  ///     .with_sync(false)
+  ///     .with_create_new(true)
+  ///     .with_read(true)
+  ///     .with_write(true)
+  ///     .with_capacity(100)
+  ///     .map_mut::<ValueLog, _>(&path).unwrap()
+  /// };
+  ///
+  /// log.flush_range(0, 50).unwrap();
+  /// ```
+  #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
+  #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
+  #[inline]
+  fn flush_range(&self, offset: usize, len: usize) -> std::io::Result<()> {
+    self.allocator().flush_range(offset, len)
+  }
+
+  /// Asynchronously flushes outstanding memory map modifications in the range to disk.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync::ValueLog, Builder};
+  /// # let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+  /// # std::fs::remove_file(&path);
+  ///
+  /// /// Create a new file without automatic syncing.
+  /// let vlog = unsafe {
+  ///   Builder::new()
+  ///     .with_sync(false)
+  ///     .with_create_new(true)
+  ///     .with_read(true)
+  ///     .with_write(true)
+  ///     .with_capacity(100)
+  ///     .map_mut::<ValueLog, _>(&path).unwrap()
+  /// };
+  ///
+  /// vlog.flush_range_async(0, 50).unwrap();
+  /// ```
+  #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
+  #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
+  #[inline]
+  fn flush_async_range(&self, offset: usize, len: usize) -> std::io::Result<()> {
+    self.allocator().flush_async_range(offset, len)
+  }
+
   /// Inserts a value into the log.
   #[inline]
   fn insert(&self, value: &[u8]) -> Result<ValuePointer<Self::Id>, Error> {
