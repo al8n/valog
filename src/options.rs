@@ -356,7 +356,7 @@ impl Options {
   /// ```
   /// use valog::options::Options;
   ///
-  /// let options = Options::new().with_max_value_size(1024);
+  /// let options = Options::new().with_maximum_value_size(1024);
   /// ```
   #[inline]
   pub const fn maximum_value_size(&self) -> u32 {

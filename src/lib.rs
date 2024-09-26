@@ -23,6 +23,12 @@ pub use log::*;
 pub mod options;
 pub use options::Builder;
 
+#[doc(inline)]
+pub use dbutils as utils;
+#[doc(inline)]
+pub use dbutils::buffer::VacantBuffer;
+pub use dbutils::checksum;
+
 /// Error types.
 pub mod error;
 

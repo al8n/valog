@@ -15,14 +15,17 @@ name = "foo"
 harness = false
 
 [features]
-default = ["memmap", "rarena-allocator/default"]
-alloc = ["rarena-allocator/alloc"]
-std = ["rarena-allocator/std"]
+default = ["memmap", "rarena-allocator/default", "dbutils/default"]
+alloc = ["rarena-allocator/alloc", "dbutils/alloc"]
+std = ["rarena-allocator/std", "dbutils/std"]
 memmap = ["std", "rarena-allocator/memmap"]
+
+xxhash64 = ["dbutils/xxhash64"]
+xxhash3 = ["dbutils/xxhash3"]
 
 [dependencies]
 dbutils = { version = "0.4", default-features = false, features = ["crc32fast"] }
-rarena-allocator = { version = "0.3", default-features = false }
+rarena-allocator = { version = "0.4", default-features = false }
 viewit = "0.1.5"
 
 [dev-dependencies]

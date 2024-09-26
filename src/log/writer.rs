@@ -1,149 +1,25 @@
-use crate::options::HEADER_SIZE;
+#![allow(clippy::type_complexity)]
 
 use super::*;
 
-/// The value log abstraction.
-pub trait Writer
-where
-  Self: Reader,
-  Self::Id: CheapClone + core::fmt::Debug,
-{
-  /// Returns the mutable reference to the reserved slice.
-  ///
-  /// ## Safety
-  /// - The caller must ensure that the there is no others accessing reserved slice for either read or write.
-  /// - This method is not thread-safe, so be careful when using it.
-  #[allow(clippy::mut_from_ref)]
-  #[inline]
-  unsafe fn reserved_slice_mut(&self) -> &mut [u8] {
-    let reserved = self.options().reserved();
-    if reserved == 0 {
-      return &mut [];
-    }
-
-    let allocator = self.allocator();
-    let reserved_slice = allocator.reserved_slice_mut();
-    &mut reserved_slice[HEADER_SIZE..]
-  }
-
-  /// Flushes the memory-mapped file to disk.
-  ///
-  /// ## Example
-  ///
-  /// ```rust
-  /// use valog::{sync::ValueLog, Builder};
-  /// # let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
-  /// # std::fs::remove_file(&path);
-  ///
-  /// /// Create a new file without automatic syncing.
-  /// let arena = unsafe {
-  ///   Builder::new()
-  ///     .with_sync(false)
-  ///     .with_create_new(true)
-  ///     .with_read(true)
-  ///     .with_write(true)
-  ///     .with_capacity(100)
-  ///     .map_mut::<ValueLog, _>(&path).unwrap() };
-  ///
-  /// arena.flush().unwrap();
-  /// ```
-  #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
-  #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
-  #[inline]
-  fn flush(&self) -> std::io::Result<()> {
-    self.allocator().flush()
-  }
-
-  /// Flushes the memory-mapped file to disk asynchronously.
-  ///
-  /// ## Example
-  ///
-  /// ```rust
-  /// use valog::{sync::ValueLog, Builder};
-  /// # let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
-  /// # std::fs::remove_file(&path);
-  ///
-  /// /// Create a new file without automatic syncing.
-  /// let log = unsafe {
-  ///   Builder::new()
-  ///     .with_sync(false)
-  ///     .with_create_new(true)
-  ///     .with_read(true)
-  ///     .with_write(true)
-  ///     .with_capacity(100)
-  ///     .map_mut::<ValueLog, _>(&path).unwrap()
-  /// };
-  ///
-  /// log.flush().unwrap();
-  /// ```
-  #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
-  #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
-  #[inline]
-  fn flush_async(&self) -> std::io::Result<()> {
-    self.allocator().flush_async()
-  }
-
-  /// Flushes outstanding memory map modifications in the range to disk.
-  ///
-  /// ## Example
-  ///
-  /// ```rust
-  /// use valog::{sync::ValueLog, Builder};
-  /// # let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
-  /// # std::fs::remove_file(&path);
-  ///
-  /// /// Create a new file without automatic syncing.
-  /// let log = unsafe {
-  ///   Builder::new()
-  ///     .with_sync(false)
-  ///     .with_create_new(true)
-  ///     .with_read(true)
-  ///     .with_write(true)
-  ///     .with_capacity(100)
-  ///     .map_mut::<ValueLog, _>(&path).unwrap()
-  /// };
-  ///
-  /// log.flush_range(0, 50).unwrap();
-  /// ```
-  #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
-  #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
-  #[inline]
-  fn flush_range(&self, offset: usize, len: usize) -> std::io::Result<()> {
-    self.allocator().flush_range(offset, len)
-  }
-
-  /// Asynchronously flushes outstanding memory map modifications in the range to disk.
-  ///
-  /// ## Example
-  ///
-  /// ```rust
-  /// use valog::{sync::ValueLog, Builder};
-  /// # let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
-  /// # std::fs::remove_file(&path);
-  ///
-  /// /// Create a new file without automatic syncing.
-  /// let vlog = unsafe {
-  ///   Builder::new()
-  ///     .with_sync(false)
-  ///     .with_create_new(true)
-  ///     .with_read(true)
-  ///     .with_write(true)
-  ///     .with_capacity(100)
-  ///     .map_mut::<ValueLog, _>(&path).unwrap()
-  /// };
-  ///
-  /// vlog.flush_range_async(0, 50).unwrap();
-  /// ```
-  #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
-  #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
-  #[inline]
-  fn flush_async_range(&self, offset: usize, len: usize) -> std::io::Result<()> {
-    self.allocator().flush_async_range(offset, len)
-  }
-
+/// The mutable value log abstraction.
+pub trait LogWriter: Log {
   /// Inserts a value into the log.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{Builder, sync::ValueLog, LogWriter};
+  ///
+  /// let log = Builder::new().with_capacity(1024).alloc::<ValueLog>(0).unwrap();
+  ///
+  /// let vp = log.insert(b"Hello, valog!").unwrap();
+  /// ```
   #[inline]
-  fn insert(&self, value: &[u8]) -> Result<ValuePointer<Self::Id>, Error> {
+  fn insert(&self, value: &[u8]) -> Result<ValuePointer<Self::Id>, Error>
+  where
+    Self::Id: CheapClone + core::fmt::Debug,
+  {
     insert_in::<_, ()>(
       self,
       ValueBuilder::new(value.len() as u32, |buf: &mut VacantBuffer<'_>| {
@@ -156,29 +32,47 @@ where
 
   /// Inserts a tombstone value into the log.
   ///
-  /// This method is almost the same as the [`insert`] method, the only difference is that
+  /// This method is almost the same as the [`insert`](LogWriter::insert_tombstone) method, the only difference is that
   /// this method will increases the discarded bytes of the log.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{Builder, sync::ValueLog, LogWriter};
+  ///
+  /// let log = Builder::new().with_capacity(1024).alloc::<ValueLog>(0).unwrap();
+  /// let vp = log.insert_tombstone(b"Hello, valog!").unwrap();
+  /// ```
   #[inline]
-  fn insert_tombstone(&self, value: &[u8]) -> Result<ValuePointer<Self::Id>, Error> {
+  fn insert_tombstone(&self, value: &[u8]) -> Result<ValuePointer<Self::Id>, Error>
+  where
+    Self::Id: CheapClone + core::fmt::Debug,
+  {
     self
       .insert(value)
       .inspect(|_| self.allocator().increase_discarded(value.len() as u32))
   }
 }
 
-/// The extension trait for the [`Log`] trait.
+/// The extension trait for the [`LogWriter`] trait.
 ///
-/// The reason having a `LogExt` is that to make [`Log`] object-safe.
-pub trait WriterExt
-where
-  Self: Writer,
-  Self::Id: CheapClone + core::fmt::Debug,
-{
+/// The reason having a `LogWriterExt` is that to make [`LogWriter`] object-safe.
+pub trait LogWriterExt: LogWriter {
   /// Inserts a generic value into the log.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{Builder, sync::ValueLog, LogWriterExt};
+  ///
+  /// let log = Builder::new().with_capacity(1024).alloc::<ValueLog>(0).unwrap();
+  /// let vp = log.insert_generic(&"Hello, valog!".to_string()).unwrap();
+  /// ```
   #[inline]
   fn insert_generic<T>(&self, value: &T) -> Result<ValuePointer<Self::Id>, Either<T::Error, Error>>
   where
     T: Type,
+    Self::Id: CheapClone + core::fmt::Debug,
   {
     let encoded_len = value.encoded_len();
     self.insert_with(ValueBuilder::new(
@@ -191,18 +85,43 @@ where
   }
 
   /// Inserts a value into the log with a builder, the value is built in place.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{Builder, sync::ValueLog, LogWriterExt, ValueBuilder, VacantBuffer};
+  ///
+  /// let log = Builder::new().with_capacity(1024).alloc::<ValueLog>(0).unwrap();
+  /// let data = b"Hello, valog!";
+  /// let vb = ValueBuilder::new(data.len() as u32, |buf: &mut VacantBuffer<'_>| {
+  ///   buf.put_slice(data)
+  /// });
+  /// let vp = log.insert_with(vb).unwrap();
+  /// ```
   #[inline]
   fn insert_with<E>(
     &self,
     vb: ValueBuilder<impl FnOnce(&mut VacantBuffer<'_>) -> Result<(), E>>,
-  ) -> Result<ValuePointer<Self::Id>, Either<E, Error>> {
+  ) -> Result<ValuePointer<Self::Id>, Either<E, Error>>
+  where
+    Self::Id: CheapClone + core::fmt::Debug,
+  {
     insert_in(self, vb)
   }
 
   /// Inserts a generic value into the log.
   ///
-  /// This method is almost the same as the [`insert_generic`] method, the only difference is that
+  /// This method is almost the same as the [`insert_generic`](LogWriterExt::insert_generic) method, the only difference is that
   /// this method will increases the discarded bytes of the log.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{Builder, sync::ValueLog, LogWriterExt};
+  ///
+  /// let log = Builder::new().with_capacity(1024).alloc::<ValueLog>(0).unwrap();
+  /// let vp = log.insert_generic_tombstone(&"Hello, valog!".to_string()).unwrap();
+  /// ```
   #[inline]
   fn insert_generic_tombstone<T>(
     &self,
@@ -210,6 +129,7 @@ where
   ) -> Result<ValuePointer<Self::Id>, Either<T::Error, Error>>
   where
     T: Type,
+    Self::Id: CheapClone + core::fmt::Debug,
   {
     let encoded_len = value.encoded_len();
     self.insert_tombstone_with(ValueBuilder::new(
@@ -223,27 +143,38 @@ where
 
   /// Inserts a value into the log with a builder, the value is built in place.
   ///
-  /// This method is almost the same as the [`insert_with`] method, the only difference is that
+  /// This method is almost the same as the [`insert_with`](LogWriterExt::insert_with) method, the only difference is that
   /// this method will increases the discarded bytes of the log.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{Builder, sync::ValueLog, LogWriterExt, ValueBuilder, VacantBuffer};
+  ///
+  /// let log = Builder::new().with_capacity(1024).alloc::<ValueLog>(0).unwrap();
+  /// let data = b"Hello, valog!";
+  /// let vb = ValueBuilder::new(data.len() as u32, |buf: &mut VacantBuffer<'_>| {
+  ///   buf.put_slice(data)
+  /// });
+  /// let vp = log.insert_tombstone_with(vb).unwrap();
+  /// ```
   #[inline]
   fn insert_tombstone_with<E>(
     &self,
     vb: ValueBuilder<impl FnOnce(&mut VacantBuffer<'_>) -> Result<(), E>>,
-  ) -> Result<ValuePointer<Self::Id>, Either<E, Error>> {
+  ) -> Result<ValuePointer<Self::Id>, Either<E, Error>>
+  where
+    Self::Id: CheapClone + core::fmt::Debug,
+  {
     let encoded_len = vb.size;
     insert_in(self, vb).inspect(|_| self.allocator().increase_discarded(encoded_len))
   }
 }
 
-impl<L> WriterExt for L
-where
-  L: Writer,
-  L::Id: CheapClone + core::fmt::Debug,
-{
-}
+impl<L> LogWriterExt for L where L: LogWriter {}
 
 /// Inserts a value into the log with a builder, the value is built in place.
-fn insert_in<L: Writer + ?Sized, E>(
+fn insert_in<L: LogWriter + ?Sized, E>(
   l: &L,
   vb: ValueBuilder<impl FnOnce(&mut VacantBuffer<'_>) -> Result<(), E>>,
 ) -> Result<ValuePointer<L::Id>, Either<E, Error>>
@@ -300,4 +231,89 @@ where
     begin_offset as u32,
     value_len,
   ))
+}
+
+pub trait AsLogWriter {
+  type Writer;
+  type Type;
+  type Id;
+
+  fn as_writer(&self) -> &Self::Writer;
+}
+
+/// Generic log writer abstraction.
+pub trait GenericLogWriter: Log {
+  /// The generic type stored in the log.
+  type Type: Type;
+
+  /// Inserts a generic value into the log.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{Builder, sync::GenericValueLog, GenericLogWriter};
+  ///
+  /// let log = Builder::new().with_capacity(1024).alloc::<GenericValueLog<String>>(0).unwrap();
+  /// let vp = log.insert(&"Hello, valog!".to_string()).unwrap();
+  /// ```
+  fn insert(
+    &self,
+    value: &Self::Type,
+  ) -> Result<ValuePointer<Self::Id>, Either<<Self::Type as Type>::Error, Error>>
+  where
+    Self::Id: CheapClone + core::fmt::Debug;
+
+  /// Inserts a generic value into the log.
+  ///
+  /// This method is almost the same as the [`insert`](GenericLogWriter::insert) method, the only difference is that
+  /// this method will increases the discarded bytes of the log.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{Builder, sync::GenericValueLog, GenericLogWriter};
+  ///
+  /// let log = Builder::new().with_capacity(1024).alloc::<GenericValueLog<String>>(0).unwrap();
+  /// let vp = log.insert_tombstone(&"Hello, valog!".to_string()).unwrap();
+  /// ```
+  fn insert_tombstone(
+    &self,
+    value: &Self::Type,
+  ) -> Result<ValuePointer<Self::Id>, Either<<Self::Type as Type>::Error, Error>>
+  where
+    Self::Id: CheapClone + core::fmt::Debug;
+}
+
+impl<L> GenericLogWriter for L
+where
+  Self::Id: CheapClone + core::fmt::Debug,
+  L: AsLogWriter<Id = <Self as Log>::Id> + Log,
+  L::Type: Type,
+  L::Writer: LogWriter<Id = Self::Id>,
+{
+  type Type = L::Type;
+
+  #[inline]
+  fn insert(
+    &self,
+    value: &Self::Type,
+  ) -> Result<ValuePointer<Self::Id>, Either<<Self::Type as Type>::Error, Error>>
+  where
+    Self::Id: CheapClone + core::fmt::Debug,
+  {
+    self.as_writer().insert_generic::<Self::Type>(value)
+  }
+
+  #[inline]
+  fn insert_tombstone(
+    &self,
+    value: &Self::Type,
+  ) -> Result<ValuePointer<Self::Id>, Either<<Self::Type as Type>::Error, Error>>
+  where
+    Self::Id: CheapClone + core::fmt::Debug,
+  {
+    self
+      .as_writer()
+      .insert_generic_tombstone::<Self::Type>(value)
+  }
 }

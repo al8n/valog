@@ -3,7 +3,7 @@ use rarena_allocator::{either::Either, Allocator};
 use super::{
   write_header, Builder, Options, CURRENT_VERSION, HEADER_SIZE, MAGIC_TEXT, MAGIC_TEXT_SIZE,
 };
-use crate::{Constructor, Frozen, Mutable};
+use crate::{sealed::Constructor, Frozen, Mutable};
 
 #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
 fn bad_magic_text() -> std::io::Error {
@@ -29,7 +29,7 @@ impl Options {
   /// ## Examples
   ///
   /// ```rust
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let opts = Options::new().with_read(true);
   /// ```
@@ -52,7 +52,7 @@ impl Options {
   /// ## Examples
   ///
   /// ```rust
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let opts = Options::new().with_write(true);
   /// ```
@@ -99,7 +99,7 @@ impl Options {
   /// ## Examples
   ///
   /// ```rust
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let opts = Options::new().with_append(true);
   /// ```
@@ -122,7 +122,7 @@ impl Options {
   /// ## Examples
   ///
   /// ```rust
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let opts = Options::new().with_write(true).with_truncate(true);
   /// ```
@@ -147,7 +147,7 @@ impl Options {
   /// ## Examples
   ///
   /// ```rust
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let opts = Options::new().with_write(true).with_create(true);
   /// ```
@@ -177,7 +177,7 @@ impl Options {
   /// ## Examples
   ///
   /// ```rust
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let file = Options::new()
   ///   .with_write(true)
@@ -193,14 +193,14 @@ impl Options {
 
   /// Configures the memory map to start at byte `offset` from the beginning of the file.
   ///
-  /// This option has no effect on anonymous memory maps or vec backed [`Arena`](crate::traits::Arena).
+  /// This option has no effect on anonymous memory maps or vec backed `Log`.
   ///
   /// By default, the offset is 0.
   ///
   /// ## Example
   ///
   /// ```
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let opts = Options::new().with_offset(30);
   /// ```
@@ -216,12 +216,12 @@ impl Options {
   ///
   /// This option corresponds to the `MAP_STACK` flag on Linux. It has no effect on Windows.
   ///
-  /// This option has no effect on file-backed memory maps and vec backed [`Arena`](crate::traits::Arena).
+  /// This option has no effect on file-backed memory maps and vec backed `Log`.
   ///
   /// ## Example
   ///
   /// ```
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let stack = Options::new().with_stack(true);
   /// ```
@@ -241,12 +241,12 @@ impl Options {
   /// default is requested. The requested length should be a multiple of this, or the mapping
   /// will fail.
   ///
-  /// This option has no effect on file-backed memory maps and vec backed [`Arena`](crate::traits::Arena).
+  /// This option has no effect on file-backed memory maps and vec backed `Log`.
   ///
   /// ## Example
   ///
   /// ```
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let stack = Options::new().with_huge(Some(8));
   /// ```
@@ -264,12 +264,12 @@ impl Options {
   ///
   /// This option corresponds to the `MAP_POPULATE` flag on Linux. It has no effect on Windows.
   ///
-  /// This option has no effect on vec backed [`Arena`](crate::traits::Arena).
+  /// This option has no effect on vec backed `Log`.
   ///
   /// ## Example
   ///
   /// ```
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let opts = Options::new().with_populate(true);
   /// ```
@@ -288,7 +288,7 @@ impl Options {
   /// ## Examples
   ///
   /// ```rust
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let opts = Options::new().with_read(true);
   /// assert_eq!(opts.read(), true);
@@ -305,7 +305,7 @@ impl Options {
   /// ## Examples
   ///
   /// ```rust
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let opts = Options::new().with_write(true);
   /// assert_eq!(opts.write(), true);
@@ -322,7 +322,7 @@ impl Options {
   /// ## Examples
   ///
   /// ```rust
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let opts = Options::new().with_append(true);
   /// assert_eq!(opts.append(), true);
@@ -339,7 +339,7 @@ impl Options {
   /// ## Examples
   ///
   /// ```rust
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let opts = Options::new().with_truncate(true);
   /// assert_eq!(opts.truncate(), true);
@@ -356,7 +356,7 @@ impl Options {
   /// ## Examples
   ///
   /// ```rust
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let opts = Options::new().with_create(true);
   /// assert_eq!(opts.create(), true);
@@ -373,7 +373,7 @@ impl Options {
   /// ## Examples
   ///
   /// ```rust
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let opts = Options::new().with_create_new(true);
   /// assert_eq!(opts.create_new(), true);
@@ -390,7 +390,7 @@ impl Options {
   /// ## Examples
   ///
   /// ```rust
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let opts = Options::new().with_offset(30);
   /// assert_eq!(opts.offset(), 30);
@@ -407,7 +407,7 @@ impl Options {
   /// ## Examples
   ///
   /// ```rust
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let opts = Options::new().with_stack(true);
   /// assert_eq!(opts.stack(), true);
@@ -424,7 +424,7 @@ impl Options {
   /// ## Examples
   ///
   /// ```rust
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let opts = Options::new().with_huge(Some(8));
   /// assert_eq!(opts.huge(), Some(8));
@@ -441,7 +441,7 @@ impl Options {
   /// ## Examples
   ///
   /// ```rust
-  /// use valog::Options;
+  /// use valog::options::Options;
   ///
   /// let opts = Options::new().with_populate(true);
   /// assert_eq!(opts.populate(), true);
@@ -531,7 +531,7 @@ impl<S> Builder<S> {
   /// ## Example
   ///
   /// ```rust
-  /// use valog::{sync, ImmutableValueLog, Builder};
+  /// use valog::{sync, Builder};
   ///
   /// let dir = tempfile::tempdir().unwrap();
   /// let map = unsafe {
@@ -552,7 +552,7 @@ impl<S> Builder<S> {
   /// let map = unsafe {
   ///   Builder::new()
   ///     .with_read(true)
-  ///     .map::<ImmutableValueLog, _>(
+  ///     .map::<sync::ImmutableValueLog, _>(
   ///       dir.path().join("map_example.vlog"),
   ///       1u32,
   ///     )
@@ -583,7 +583,7 @@ impl<S> Builder<S> {
   /// ## Example
   ///
   /// ```rust
-  /// use valog::{sync, ImmutableValueLog, Builder};
+  /// use valog::{sync, Builder};
   ///
   /// let dir = tempfile::tempdir().unwrap();
   /// let map = unsafe {
@@ -604,7 +604,7 @@ impl<S> Builder<S> {
   /// let map = unsafe {
   ///   Builder::new()
   ///     .with_read(true)
-  ///     .map_with_path_builder::<ImmutableValueLog, _, ()>(
+  ///     .map_with_path_builder::<sync::ImmutableValueLog, _, ()>(
   ///       || Ok(dir.path().join("map_with_path_builder_example.vlog")),
   ///       1u32,
   ///     )
@@ -966,7 +966,7 @@ impl<C> Builder<C> {
 
   /// Configures the memory map to start at byte `offset` from the beginning of the file.
   ///
-  /// This option has no effect on anonymous memory maps or vec backed [`Arena`](crate::traits::Arena).
+  /// This option has no effect on anonymous memory maps or vec backed `Log`.
   ///
   /// By default, the offset is 0.
   ///
@@ -989,7 +989,7 @@ impl<C> Builder<C> {
   ///
   /// This option corresponds to the `MAP_STACK` flag on Linux. It has no effect on Windows.
   ///
-  /// This option has no effect on file-backed memory maps and vec backed [`Arena`](crate::traits::Arena).
+  /// This option has no effect on file-backed memory maps and vec backed `Log`.
   ///
   /// ## Example
   ///
@@ -1014,7 +1014,7 @@ impl<C> Builder<C> {
   /// default is requested. The requested length should be a multiple of this, or the mapping
   /// will fail.
   ///
-  /// This option has no effect on file-backed memory maps and vec backed [`Arena`](crate::traits::Arena).
+  /// This option has no effect on file-backed memory maps and vec backed `Log`.
   ///
   /// ## Example
   ///
@@ -1037,7 +1037,7 @@ impl<C> Builder<C> {
   ///
   /// This option corresponds to the `MAP_POPULATE` flag on Linux. It has no effect on Windows.
   ///
-  /// This option has no effect on vec backed [`Arena`](crate::traits::Arena).
+  /// This option has no effect on vec backed `Log`.
   ///
   /// ## Example
   ///

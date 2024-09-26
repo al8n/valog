@@ -11,30 +11,17 @@ use rarena_allocator::{either::Either, Allocator, Buffer};
 use super::{error::Error, options::Options, ValueBuilder};
 
 mod reader;
-pub use reader::*;
+pub use reader::{GenericLogReader, LogReader, LogReaderExt};
 
 mod writer;
-pub use writer::*;
+pub use writer::{GenericLogWriter, LogWriter, LogWriterExt};
+
+mod common;
+pub use common::*;
 
 pub(super) mod sealed;
 
 const CHECKSUM_LEN: usize = 8;
-
-/// A trait that means can be constructed to a value log.
-pub trait Constructor: sealed::Sealed {
-  /// The checksumer used by the log.
-  type Checksumer;
-  /// The file id type.
-  type Id;
-
-  /// Constructs a value log.
-  fn construct(
-    fid: Self::Id,
-    allocator: Self::Allocator,
-    checksumer: Self::Checksumer,
-    options: Options,
-  ) -> Self;
-}
 
 /// A marker trait which means that the log is frozen and cannot be modified.
 pub trait Frozen {}
@@ -99,7 +86,7 @@ where
   }
 }
 
-impl<I, A, C> Constructor for ValueLog<I, A, C>
+impl<I, A, C> sealed::Constructor for ValueLog<I, A, C>
 where
   A: Allocator,
 {
@@ -122,7 +109,7 @@ where
   }
 }
 
-impl<I, A, C> Reader for ValueLog<I, A, C>
+impl<I, A, C> Log for ValueLog<I, A, C>
 where
   A: Allocator,
   C: BuildChecksumer,
@@ -150,7 +137,14 @@ where
   }
 }
 
-impl<I, A, C> Writer for ValueLog<I, A, C>
+impl<I, A, C> LogReader for ValueLog<I, A, C>
+where
+  C: BuildChecksumer,
+  A: Allocator,
+{
+}
+
+impl<I, A, C> LogWriter for ValueLog<I, A, C>
 where
   A: Allocator,
   C: BuildChecksumer,
@@ -162,9 +156,9 @@ impl<I, A, C> Mutable for ValueLog<I, A, C> {}
 
 /// The immutable value log implementation.
 #[derive(Debug, Clone)]
-pub struct ImmutableValueLog<I = u32, C = Crc32> {
+pub struct ImmutableValueLog<I, A, C = Crc32> {
   fid: I,
-  allocator: rarena_allocator::unsync::Arena,
+  allocator: A,
   checksumer: C,
   options: Options,
 }
@@ -173,21 +167,26 @@ pub struct ImmutableValueLog<I = u32, C = Crc32> {
 // the `ImmutableValueLog` is `Send` and `Sync` because it is not possible to
 // mutate the `Arena` from outside of the `ImmutableValueLog`.
 // And the `raena_allocator::unsync::Arena` has the same memory layout as `rarena_allocator::sync::Arena`.
-unsafe impl<I, C> Send for ImmutableValueLog<I, C>
+unsafe impl<I, A, C> Send for ImmutableValueLog<I, A, C>
 where
   C: Send,
   I: Send,
+  A: Send,
 {
 }
-unsafe impl<I, C> Sync for ImmutableValueLog<I, C>
+unsafe impl<I, A, C> Sync for ImmutableValueLog<I, A, C>
 where
   C: Sync,
   I: Sync,
+  A: Sync,
 {
 }
 
-impl<I, C> sealed::Sealed for ImmutableValueLog<I, C> {
-  type Allocator = rarena_allocator::unsync::Arena;
+impl<I, A, C> sealed::Sealed for ImmutableValueLog<I, A, C>
+where
+  A: Allocator,
+{
+  type Allocator = A;
 
   #[inline]
   fn allocator(&self) -> &Self::Allocator {
@@ -195,9 +194,10 @@ impl<I, C> sealed::Sealed for ImmutableValueLog<I, C> {
   }
 }
 
-impl<I, C> Reader for ImmutableValueLog<I, C>
+impl<I, A, C> Log for ImmutableValueLog<I, A, C>
 where
   C: BuildChecksumer,
+  A: Allocator,
 {
   type Id = I;
 
@@ -222,7 +222,17 @@ where
   }
 }
 
-impl<I, C> Constructor for ImmutableValueLog<I, C> {
+impl<I, A, C> LogReader for ImmutableValueLog<I, A, C>
+where
+  C: BuildChecksumer,
+  A: Allocator,
+{
+}
+
+impl<I, A, C> sealed::Constructor for ImmutableValueLog<I, A, C>
+where
+  A: Allocator,
+{
   type Checksumer = C;
   type Id = I;
 
@@ -250,6 +260,23 @@ pub struct GenericValueLog<T, I, A, C = Crc32> {
   _phantom: core::marker::PhantomData<T>,
 }
 
+impl<T, I: Clone, A: Clone, C: Clone> Clone for GenericValueLog<T, I, A, C> {
+  fn clone(&self) -> Self {
+    Self {
+      log: self.log.clone(),
+      _phantom: core::marker::PhantomData,
+    }
+  }
+}
+
+impl<T, I: core::fmt::Debug, A: core::fmt::Debug, C: core::fmt::Debug> core::fmt::Debug
+  for GenericValueLog<T, I, A, C>
+{
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    self.log.fmt(f)
+  }
+}
+
 impl<T, I, A, C> sealed::Sealed for GenericValueLog<T, I, A, C>
 where
   A: Allocator,
@@ -264,7 +291,7 @@ where
 
 impl<T, I, A, C> Mutable for GenericValueLog<T, I, A, C> {}
 
-impl<T, I, A, C> Constructor for GenericValueLog<T, I, A, C>
+impl<T, I, A, C> sealed::Constructor for GenericValueLog<T, I, A, C>
 where
   A: Allocator,
 {
@@ -285,72 +312,55 @@ where
   }
 }
 
-impl<T, I, A, C> GenericValueLog<T, I, A, C>
-where
-  A: Allocator,
-  C: BuildChecksumer,
-{
-  /// Returns the options of the log.
-  #[inline]
-  pub fn options(&self) -> &Options {
-    self.log.options()
-  }
+impl<T, I, A, C> reader::AsLogReader for GenericValueLog<T, I, A, C> {
+  type Reader = ValueLog<I, A, C>;
+  type Type = T;
 
-  /// Returns the identifier of the log.
   #[inline]
-  pub fn id(&self) -> &I {
-    self.log.id()
+  fn as_reader(&self) -> &Self::Reader {
+    &self.log
   }
+}
 
-  /// Returns the magic version of the log.
+impl<T, I, A, C> writer::AsLogWriter for GenericValueLog<T, I, A, C> {
+  type Writer = ValueLog<I, A, C>;
+  type Id = I;
+  type Type = T;
+
   #[inline]
-  pub fn magic_version(&self) -> u16 {
-    self.log.magic_version()
-  }
-
-  /// Reads a value from the log at the given offset.
-  ///
-  /// ## Safety
-  /// - The buffer `offset..offset + len` must hold a valid bytes sequence which created by encoding a value of type `T` through [`Type::encode`](Type::encode).
-  pub unsafe fn read(&self, offset: u32, len: u32) -> Result<T::Ref<'_>, Error>
-  where
-    T: Type,
-  {
-    self.log.read_generic::<T>(offset, len)
-  }
-
-  /// Inserts a value into the log.
-  #[inline]
-  pub fn insert(&self, value: &T) -> Result<ValuePointer<I>, Either<T::Error, Error>>
-  where
-    I: CheapClone + core::fmt::Debug,
-    T: Type,
-  {
-    self.log.insert_generic(value)
-  }
-
-  /// Inserts a tombstone value into the log.
-  ///
-  /// This method is almost the same as the [`insert_generic`] method, the only difference is that
-  /// this method will increases the discarded bytes of the log.
-  #[inline]
-  pub fn insert_tombstone(&self, value: &T) -> Result<ValuePointer<I>, Either<T::Error, Error>>
-  where
-    I: CheapClone + core::fmt::Debug,
-    T: Type,
-  {
-    self.log.insert_generic_tombstone(value)
+  fn as_writer(&self) -> &Self::Writer {
+    &self.log
   }
 }
 
 /// Immutable generic value log.
-pub struct ImmutableGenericValueLog<T, I, C = Crc32> {
-  log: ImmutableValueLog<I, C>,
+pub struct ImmutableGenericValueLog<T, I, A, C = Crc32> {
+  log: ImmutableValueLog<I, A, C>,
   _phantom: core::marker::PhantomData<T>,
 }
 
-impl<T, I, C> sealed::Sealed for ImmutableGenericValueLog<T, I, C> {
-  type Allocator = rarena_allocator::unsync::Arena;
+impl<T, I: core::fmt::Debug, A: core::fmt::Debug, C: core::fmt::Debug> core::fmt::Debug
+  for ImmutableGenericValueLog<T, I, A, C>
+{
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    self.log.fmt(f)
+  }
+}
+
+impl<T, I: Clone, A: Clone, C: Clone> Clone for ImmutableGenericValueLog<T, I, A, C> {
+  fn clone(&self) -> Self {
+    Self {
+      log: self.log.clone(),
+      _phantom: core::marker::PhantomData,
+    }
+  }
+}
+
+impl<T, I, A, C> sealed::Sealed for ImmutableGenericValueLog<T, I, A, C>
+where
+  A: Allocator,
+{
+  type Allocator = A;
 
   #[inline]
   fn allocator(&self) -> &Self::Allocator {
@@ -358,9 +368,12 @@ impl<T, I, C> sealed::Sealed for ImmutableGenericValueLog<T, I, C> {
   }
 }
 
-impl<T, I, C> Frozen for ImmutableGenericValueLog<T, I, C> {}
+impl<T, I, A, C> Frozen for ImmutableGenericValueLog<T, I, A, C> {}
 
-impl<T, I, C> Constructor for ImmutableGenericValueLog<T, I, C> {
+impl<T, I, A, C> sealed::Constructor for ImmutableGenericValueLog<T, I, A, C>
+where
+  A: Allocator,
+{
   type Checksumer = C;
   type Id = I;
 
@@ -378,37 +391,13 @@ impl<T, I, C> Constructor for ImmutableGenericValueLog<T, I, C> {
   }
 }
 
-impl<T, I, C> ImmutableGenericValueLog<T, I, C>
-where
-  C: BuildChecksumer,
-{
-  /// Returns the options of the log.
-  #[inline]
-  pub fn options(&self) -> &Options {
-    self.log.options()
-  }
+impl<T, I, A, C> reader::AsLogReader for ImmutableGenericValueLog<T, I, A, C> {
+  type Reader = ImmutableValueLog<I, A, C>;
+  type Type = T;
 
-  /// Returns the identifier of the log.
   #[inline]
-  pub fn id(&self) -> &I {
-    self.log.id()
-  }
-
-  /// Returns the magic version of the log.
-  #[inline]
-  pub fn magic_version(&self) -> u16 {
-    self.log.magic_version()
-  }
-
-  /// Reads a value from the log at the given offset.
-  ///
-  /// ## Safety
-  /// - The buffer `offset..offset + len` must hold a valid bytes sequence which created by encoding a value of type `T` through [`Type::encode`](Type::encode).
-  pub unsafe fn read(&self, offset: u32, len: u32) -> Result<T::Ref<'_>, Error>
-  where
-    T: Type,
-  {
-    self.log.read_generic::<T>(offset, len)
+  fn as_reader(&self) -> &Self::Reader {
+    &self.log
   }
 }
 
@@ -416,15 +405,17 @@ where
 // the `ImmutableValueLog` is `Send` and `Sync` because it is not possible to
 // mutate the `Arena` from outside of the `ImmutableValueLog`.
 // And the `raena_allocator::unsync::Arena` has the same memory layout as `rarena_allocator::sync::Arena`.
-unsafe impl<T, I, C> Send for ImmutableGenericValueLog<T, I, C>
+unsafe impl<T, I, A, C> Send for ImmutableGenericValueLog<T, I, A, C>
 where
   C: Send,
   I: Send,
+  A: Send,
 {
 }
-unsafe impl<T, I, C> Sync for ImmutableGenericValueLog<T, I, C>
+unsafe impl<T, I, A, C> Sync for ImmutableGenericValueLog<T, I, A, C>
 where
   C: Sync,
   I: Sync,
+  A: Sync,
 {
 }

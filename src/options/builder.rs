@@ -1,11 +1,11 @@
 use dbutils::checksum::{BuildChecksumer, Crc32};
 use rarena_allocator::Allocator;
 
-use crate::{error::Error, Constructor, Mutable};
+use crate::{error::Error, sealed::Constructor, Mutable};
 
 use super::*;
 
-/// The builder to build `SkipMap`
+/// The builder to build a `Log`
 pub struct Builder<S = Crc32> {
   pub(super) opts: Options,
   pub(super) cks: S,
@@ -30,7 +30,7 @@ impl Builder {
 }
 
 impl<S> Builder<S> {
-  /// Returns a new map builder with the new [`Comparator`](super::Comparator).
+  /// Returns a new map builder with the new [`BuildChecksumer`](crate::checksum::BuildChecksumer).
   ///
   /// ## Example
   ///
@@ -80,6 +80,23 @@ impl<S> Builder<S> {
   #[inline]
   pub const fn with_reserved(mut self, reserved: u32) -> Self {
     self.opts.reserved = reserved;
+    self
+  }
+
+  /// Set if flush the data to the disk when new value is inserted.
+  ///
+  /// Default is `true`.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::Builder;
+  ///
+  /// let opts = Builder::new().with_sync(false);
+  /// ```
+  #[inline]
+  pub const fn with_sync(mut self, sync: bool) -> Self {
+    self.opts.sync = sync;
     self
   }
 
@@ -177,7 +194,7 @@ impl<S> Builder<S> {
   /// ```
   /// use valog::Builder;
   ///
-  /// let builder = Builder::new().with_max_value_size(1024);
+  /// let builder = Builder::new().with_maximum_value_size(1024);
   /// ```
   #[inline]
   pub const fn with_maximum_value_size(mut self, size: u32) -> Self {
@@ -222,6 +239,24 @@ impl<S> Builder<S> {
   #[inline]
   pub const fn reserved(&self) -> u32 {
     self.opts.reserved
+  }
+
+  /// Get if flush the data to the disk when new value is inserted.
+  ///
+  /// Default is `true`.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::Builder;
+  ///
+  /// let builder = Builder::new().with_sync(false);
+  ///
+  /// assert_eq!(builder.sync(), false);
+  /// ```
+  #[inline]
+  pub const fn sync(&self) -> bool {
+    self.opts.sync
   }
 
   /// Get if lock the meta of the `Log` in the memory to prevent OS from swapping out the first page of `Log`.
@@ -330,7 +365,7 @@ impl<S> Builder<S> {
   /// ## Example
   ///
   /// ```rust
-  /// use valog::{Builder, Freelist};
+  /// use valog::{Builder, options::Freelist};
   ///
   /// let builder = Builder::new().with_freelist(Freelist::Optimistic);
   ///
