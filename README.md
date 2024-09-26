@@ -1,9 +1,9 @@
 <div align="center">
-<h1>WIP: valog</h1>
+<h1>VaLog</h1>
 </div>
 <div align="center">
 
-A lock-free, generic, lightweight value log.
+A lock-free, generic, lightweight value log for WiscKey architecture databases.
 
 [<img alt="github" src="https://img.shields.io/badge/github-al8n/valog-8da0cb?style=for-the-badge&logo=Github" height="22">][Github-url]
 <img alt="LoC" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fal8n%2F327b2a8aef9003246e45c6e47fe63937%2Fraw%2Fvalog" height="22">
@@ -21,16 +21,36 @@ English | [简体中文][zh-cn-url]
 
 ## Introduction
 
-This crate are implemented for databases based on WiscKey paper, which means that keys are storing in other place.
-So, this crate will only take care of values, no iterators, no rewriting, and users need to store the result returned by
-`write*` APIs by themselves.
+This crate is designed for databases based on the WiscKey architecture, which separates the storage of keys from values. Consequently, this crate focuses exclusively on managing values. Users are responsible for storing the value pointers returned by the `write*` APIs.
+
+### Features
+
+- **Lock-Free and Concurrently Safe:** Engineered for high-performance concurrent access without the use of locks.
+- **Generic Data Structure Support:** Provides flexibility to accommodate a variety of data types.
+- **In-Place Writing:** Guarantees no additional memory allocation during write operations.
+- **Zero-Copy Reads:** Enables efficient reading without unnecessary data duplication.
+- **Three Mode Support:**
+  - **`Vec`:** Usable in environments without the standard library (`no_std`).
+  - **Anonymous Memory Mapping:** Efficiently manages memory through an anonymous memory map.
+  - **File-Backed Memory Map:** Functions similarly to an in-memory arena but stores data persistently on disk.
+
+This crate offers a robust solution for managing value storage in WiscKey-based databases, prioritizing both performance and efficiency.
 
 ## Installation
 
-```toml
-[dependencies]
-valog = "0.1"
-```
+- Default
+  
+  ```toml
+  [dependencies]
+  valog = "0.1"
+  ```
+
+- `no_std` full in-memory mode
+
+  ```toml
+  [dependencies]
+  valog = { version = "0.1", default-features = false, features = ["alloc"] }
+  ```
 
 #### License
 

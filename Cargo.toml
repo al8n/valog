@@ -8,6 +8,8 @@ documentation = "https://docs.rs/valog"
 description = "A lock-free, generic, lightweight value log."
 license = "MIT OR Apache-2.0"
 rust-version = "1.81.0"
+categories = ["data-structures", "database-implementations", "development-tools"]
+keywords = ["value-log", "wisckey", "vlog", "database"]
 
 [[bench]]
 path = "benches/foo.rs"
