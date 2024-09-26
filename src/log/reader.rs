@@ -121,45 +121,33 @@ pub trait GenericLogReader: Log {
     Self::Type: Type;
 }
 
-pub trait AsLogReader {
-  type Reader;
-  type Type;
+// impl<L> Log for L
+// where
+//   L: AsLogReader + sealed::Sealed,
+//   L::Reader: LogReader,
+// {
+//   type Id = <L::Reader as Log>::Id;
 
-  fn as_reader(&self) -> &Self::Reader;
-}
+//   #[inline]
+//   fn id(&self) -> &Self::Id {
+//     self.as_reader().id()
+//   }
 
-impl<L> Log for L
-where
-  L: AsLogReader + sealed::Sealed,
-  L::Reader: LogReader,
-{
-  type Id = <L::Reader as Log>::Id;
+//   #[inline]
+//   fn checksum(&self, bytes: &[u8]) -> u64 {
+//     self.as_reader().checksum(bytes)
+//   }
 
-  #[inline]
-  fn id(&self) -> &Self::Id {
-    self.as_reader().id()
-  }
-
-  #[inline]
-  fn checksum(&self, bytes: &[u8]) -> u64 {
-    self.as_reader().checksum(bytes)
-  }
-
-  #[inline]
-  fn options(&self) -> &Options {
-    self.as_reader().options()
-  }
-
-  #[inline]
-  fn magic_version(&self) -> u16 {
-    self.as_reader().magic_version()
-  }
-}
+//   #[inline]
+//   fn options(&self) -> &Options {
+//     self.as_reader().options()
+//   }
+// }
 
 impl<L> GenericLogReader for L
 where
-  L: AsLogReader + sealed::Sealed,
-  L::Reader: LogReader,
+  L: common::AsLog,
+  L::Log: LogReader,
 {
   type Type = L::Type;
 
@@ -167,6 +155,6 @@ where
   where
     Self::Type: Type,
   {
-    self.as_reader().read_generic::<Self::Type>(offset, len)
+    self.as_log().read_generic::<Self::Type>(offset, len)
   }
 }

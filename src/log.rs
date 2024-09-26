@@ -17,7 +17,7 @@ mod writer;
 pub use writer::{GenericLogWriter, LogWriter, LogWriterExt};
 
 mod common;
-pub use common::*;
+pub use common::Log;
 
 pub(super) mod sealed;
 
@@ -130,11 +130,6 @@ where
   fn id(&self) -> &Self::Id {
     &self.fid
   }
-
-  #[inline]
-  fn magic_version(&self) -> u16 {
-    self.options.magic_version
-  }
 }
 
 impl<I, A, C> LogReader for ValueLog<I, A, C>
@@ -215,11 +210,6 @@ where
   fn id(&self) -> &Self::Id {
     &self.fid
   }
-
-  #[inline]
-  fn magic_version(&self) -> u16 {
-    self.options.magic_version
-  }
 }
 
 impl<I, A, C> LogReader for ImmutableValueLog<I, A, C>
@@ -277,58 +267,24 @@ impl<T, I: core::fmt::Debug, A: core::fmt::Debug, C: core::fmt::Debug> core::fmt
   }
 }
 
-impl<T, I, A, C> sealed::Sealed for GenericValueLog<T, I, A, C>
-where
-  A: Allocator,
-{
-  type Allocator = A;
-
-  #[inline]
-  fn allocator(&self) -> &Self::Allocator {
-    self.log.allocator()
-  }
-}
-
 impl<T, I, A, C> Mutable for GenericValueLog<T, I, A, C> {}
 
-impl<T, I, A, C> sealed::Constructor for GenericValueLog<T, I, A, C>
-where
-  A: Allocator,
-{
-  type Checksumer = C;
-  type Id = I;
-
+impl<T, I, A, C> From<ValueLog<I, A, C>> for GenericValueLog<T, I, A, C> {
   #[inline]
-  fn construct(
-    fid: Self::Id,
-    allocator: Self::Allocator,
-    checksumer: Self::Checksumer,
-    options: Options,
-  ) -> Self {
+  fn from(value: ValueLog<I, A, C>) -> Self {
     Self {
-      log: ValueLog::construct(fid, allocator, checksumer, options),
+      log: value,
       _phantom: core::marker::PhantomData,
     }
   }
 }
 
-impl<T, I, A, C> reader::AsLogReader for GenericValueLog<T, I, A, C> {
-  type Reader = ValueLog<I, A, C>;
+impl<T, I, A, C> common::AsLog for GenericValueLog<T, I, A, C> {
+  type Log = ValueLog<I, A, C>;
   type Type = T;
 
   #[inline]
-  fn as_reader(&self) -> &Self::Reader {
-    &self.log
-  }
-}
-
-impl<T, I, A, C> writer::AsLogWriter for GenericValueLog<T, I, A, C> {
-  type Writer = ValueLog<I, A, C>;
-  type Id = I;
-  type Type = T;
-
-  #[inline]
-  fn as_writer(&self) -> &Self::Writer {
+  fn as_log(&self) -> &Self::Log {
     &self.log
   }
 }
@@ -356,47 +312,24 @@ impl<T, I: Clone, A: Clone, C: Clone> Clone for ImmutableGenericValueLog<T, I, A
   }
 }
 
-impl<T, I, A, C> sealed::Sealed for ImmutableGenericValueLog<T, I, A, C>
-where
-  A: Allocator,
-{
-  type Allocator = A;
-
-  #[inline]
-  fn allocator(&self) -> &Self::Allocator {
-    self.log.allocator()
-  }
-}
-
 impl<T, I, A, C> Frozen for ImmutableGenericValueLog<T, I, A, C> {}
 
-impl<T, I, A, C> sealed::Constructor for ImmutableGenericValueLog<T, I, A, C>
-where
-  A: Allocator,
-{
-  type Checksumer = C;
-  type Id = I;
-
+impl<T, I, A, C> From<ImmutableValueLog<I, A, C>> for ImmutableGenericValueLog<T, I, A, C> {
   #[inline]
-  fn construct(
-    fid: Self::Id,
-    allocator: Self::Allocator,
-    checksumer: Self::Checksumer,
-    options: Options,
-  ) -> Self {
+  fn from(value: ImmutableValueLog<I, A, C>) -> Self {
     Self {
-      log: ImmutableValueLog::construct(fid, allocator, checksumer, options),
+      log: value,
       _phantom: core::marker::PhantomData,
     }
   }
 }
 
-impl<T, I, A, C> reader::AsLogReader for ImmutableGenericValueLog<T, I, A, C> {
-  type Reader = ImmutableValueLog<I, A, C>;
+impl<T, I, A, C> common::AsLog for ImmutableGenericValueLog<T, I, A, C> {
+  type Log = ImmutableValueLog<I, A, C>;
   type Type = T;
 
   #[inline]
-  fn as_reader(&self) -> &Self::Reader {
+  fn as_log(&self) -> &Self::Log {
     &self.log
   }
 }

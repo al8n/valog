@@ -17,7 +17,9 @@ pub trait Log: sealed::Sealed {
   fn options(&self) -> &Options;
 
   /// Returns the magic version of the log.
-  fn magic_version(&self) -> u16;
+  fn magic_version(&self) -> u16 {
+    self.options().magic_version()
+  }
 
   /// Returns the version of the log.
   #[inline]
@@ -391,5 +393,68 @@ pub trait Log: sealed::Sealed {
     Self: Mutable,
   {
     self.allocator().flush_async_range(offset, len)
+  }
+}
+
+pub trait AsLog {
+  type Log;
+  type Type;
+
+  fn as_log(&self) -> &Self::Log;
+}
+
+impl<L> sealed::Sealed for L
+where
+  L: AsLog,
+  L::Log: Log,
+{
+  type Allocator = <L::Log as sealed::Sealed>::Allocator;
+
+  #[inline]
+  fn allocator(&self) -> &Self::Allocator {
+    self.as_log().allocator()
+  }
+}
+
+impl<L> sealed::Constructor for L
+where
+  L: AsLog,
+  L::Log: Log + sealed::Constructor<Id = <L::Log as Log>::Id>,
+  L: From<L::Log>,
+{
+  type Checksumer = <L::Log as sealed::Constructor>::Checksumer;
+
+  type Id = <L::Log as Log>::Id;
+
+  fn construct(
+    fid: Self::Id,
+    allocator: Self::Allocator,
+    checksumer: Self::Checksumer,
+    options: Options,
+  ) -> Self {
+    <L::Log as sealed::Constructor>::construct(fid, allocator, checksumer, options).into()
+  }
+}
+
+impl<L> Log for L
+where
+  L: AsLog,
+  L::Log: Log,
+{
+  type Id = <L::Log as Log>::Id;
+
+  #[inline]
+  fn id(&self) -> &Self::Id {
+    self.as_log().id()
+  }
+
+  #[inline]
+  fn checksum(&self, bytes: &[u8]) -> u64 {
+    self.as_log().checksum(bytes)
+  }
+
+  #[inline]
+  fn options(&self) -> &Options {
+    self.as_log().options()
   }
 }

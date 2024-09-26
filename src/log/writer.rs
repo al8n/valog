@@ -200,16 +200,15 @@ where
     .map_err(|e| Either::Right(Error::from_insufficient_space(e)))?;
 
   let begin_offset = buf.offset();
-
   buf.set_len(value_len as usize);
-  let mut vacant_buf =
-    unsafe { VacantBuffer::new(value_len as usize, NonNull::new_unchecked(buf.as_mut_ptr())) };
-  builder(&mut vacant_buf).map_err(Either::Left)?;
-
-  let checksum = l.checksum(&vacant_buf);
 
   // SAFETY: `buf` is allocated with the exact size of `value.len() + CHECKSUM_LEN`.
   unsafe {
+    let ptr = NonNull::new_unchecked(buf.as_mut_ptr());
+    let mut vacant_buf = VacantBuffer::new(value_len as usize, ptr);
+    let checksum = l.checksum(&vacant_buf);
+
+    builder(&mut vacant_buf).map_err(Either::Left)?;
     buf.put_u64_le_unchecked(checksum);
   }
 
@@ -231,14 +230,6 @@ where
     begin_offset as u32,
     value_len,
   ))
-}
-
-pub trait AsLogWriter {
-  type Writer;
-  type Type;
-  type Id;
-
-  fn as_writer(&self) -> &Self::Writer;
 }
 
 /// Generic log writer abstraction.
@@ -286,10 +277,10 @@ pub trait GenericLogWriter: Log {
 
 impl<L> GenericLogWriter for L
 where
-  Self::Id: CheapClone + core::fmt::Debug,
-  L: AsLogWriter<Id = <Self as Log>::Id> + Log,
+  L: common::AsLog,
   L::Type: Type,
-  L::Writer: LogWriter<Id = Self::Id>,
+  L::Log: LogWriter,
+  <L::Log as Log>::Id: CheapClone + core::fmt::Debug,
 {
   type Type = L::Type;
 
@@ -301,7 +292,7 @@ where
   where
     Self::Id: CheapClone + core::fmt::Debug,
   {
-    self.as_writer().insert_generic::<Self::Type>(value)
+    self.as_log().insert_generic(value)
   }
 
   #[inline]
@@ -312,8 +303,6 @@ where
   where
     Self::Id: CheapClone + core::fmt::Debug,
   {
-    self
-      .as_writer()
-      .insert_generic_tombstone::<Self::Type>(value)
+    self.as_log().insert_generic_tombstone(value)
   }
 }

@@ -16,6 +16,9 @@ pub mod unsync;
 mod log;
 pub use log::*;
 
+#[cfg(test)]
+pub(crate) mod tests;
+
 /// Options for configuring the value log.
 pub mod options;
 pub use options::Builder;
