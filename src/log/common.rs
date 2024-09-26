@@ -34,8 +34,8 @@ pub trait Log: sealed::Sealed {
   /// Returns the path of the log.
   ///
   /// If the log is in memory, this method will return `None`.
-  #[cfg(feature = "memmap")]
-  #[cfg_attr(docsrs, doc(cfg(feature = "memmap")))]
+  #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
+  #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
   #[inline]
   fn path(&self) -> Option<&<Self::Allocator as Allocator>::Path> {
     self.allocator().path()

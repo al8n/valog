@@ -149,7 +149,7 @@ jobs:
         path: ~/.cargo
         key: ${{ runner.os }}-coverage-dotcargo
     - name: Run build
-      run: cargo hack build --feature-powerset --exclude-no-default-features
+      run: cargo hack build --feature-powerset --exclude-no-default-features --group-features xxhash64,xxhash3,alloc
   
   test:
     name: test
@@ -183,7 +183,7 @@ jobs:
         path: ~/.cargo
         key: ${{ runner.os }}-coverage-dotcargo
     - name: Run test
-      run: cargo hack test --feature-powerset --exclude-no-default-features --exclude-features loom
+      run: cargo hack test --feature-powerset --exclude-no-default-features --group-features xxhash64,xxhash3,alloc
   
   sanitizer:
     name: sanitizer
@@ -305,31 +305,6 @@ jobs:
         run: |
           bash ci/miri_sb.sh ${{ matrix.target }} ${{ matrix.cfg }}
 
-  loom:
-    name: loom
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: Cache cargo build and registry
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-loom-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-loom-
-      - name: Install Rust
-        run: rustup update $nightly && rustup default $nightly
-      - name: Loom tests
-        run: cargo test --tests --features loom
 
   # valgrind
   valgrind:
@@ -377,7 +352,6 @@ jobs:
       - cross
       - test
       - sanitizer
-      - loom
     steps:
       - uses: actions/checkout@v3
       - name: Install latest nightly
