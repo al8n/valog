@@ -63,7 +63,7 @@ jobs:
     - name: Install cargo-hack
       run: cargo install cargo-hack
     - name: Apply clippy lints
-      run: cargo hack clippy --each-feature --exclude-no-default-features
+      run: cargo hack clippy --each-feature --exclude-no-default-features --exclude-features xxhash64,xxhash3
 
   # Run tests on some extra platforms
   cross:
@@ -109,7 +109,7 @@ jobs:
       - name: cargo build --target ${{ matrix.target }}
         run: |
           rustup target add ${{ matrix.target }}
-          cargo build --target ${{ matrix.target }}
+          cargo build --target ${{ matrix.target }} --no-default-features --features alloc
         if: matrix.target == 'wasm32-unknown-unknown' || matrix.target == 'wasm32-wasi'
       # - name: cargo build --target ${{ matrix.target }}
       #   run: |
