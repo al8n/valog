@@ -17,7 +17,7 @@ mod writer;
 pub use writer::{GenericLogWriter, LogWriter, LogWriterExt};
 
 mod common;
-pub use common::Log;
+pub use common::{Log, LogExt, MutableLog};
 
 pub(super) mod sealed;
 

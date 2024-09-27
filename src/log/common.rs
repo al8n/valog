@@ -8,12 +8,52 @@ pub trait Log: sealed::Sealed {
   type Id;
 
   /// Returns the identifier of the log.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync::ValueLog, Builder, Log};
+  ///
+  /// let log = Builder::new()
+  ///   .with_capacity(100)
+  ///   .alloc::<ValueLog>(1)
+  ///   .unwrap();
+  ///
+  /// assert_eq!(log.id(), &1);
+  /// ```
   fn id(&self) -> &Self::Id;
 
   /// Calculates the checksum of the given bytes.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync::ValueLog, Builder, Log, checksum::{Crc32, BuildChecksumer}};
+  ///
+  /// let log = Builder::new()
+  ///   .with_capacity(100)
+  ///   .alloc::<ValueLog>(1)
+  ///   .unwrap();
+  ///
+  /// let bytes = b"Hello, valog!";
+  /// assert_eq!(log.checksum(bytes), Crc32::new().checksum_one(bytes));
+  /// ```
   fn checksum(&self, bytes: &[u8]) -> u64;
 
   /// Returns the options of the log.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync::ValueLog, Builder, Log};
+  ///
+  /// let log = Builder::new()
+  ///   .with_capacity(100)
+  ///   .alloc::<ValueLog>(1)
+  ///   .unwrap();
+  ///
+  /// assert_eq!(log.options().capacity(), 100);
+  /// ```
   fn options(&self) -> &Options;
 
   /// Returns the magic version of the log.
@@ -28,14 +68,84 @@ pub trait Log: sealed::Sealed {
   }
 
   /// Returns the discarded bytes of the log.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync::ValueLog, Builder, Log, LogWriter};
+  ///
+  ///
+  /// let log = Builder::new()
+  ///   .with_capacity(100)
+  ///   .alloc::<ValueLog>(1)
+  ///   .unwrap();
+  ///
+  /// assert_eq!(log.discarded(), 0);
+  ///
+  /// log.insert_tombstone(b"Hello, valog!").unwrap();
+  /// assert_eq!(log.discarded(), 13);
+  /// ```
   #[inline]
   fn discarded(&self) -> u32 {
     self.allocator().discarded()
   }
 
+  /// Returns the data offset of the log.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync::ValueLog, Builder, Log};
+  ///
+  /// let log = Builder::new()
+  ///   .with_capacity(100)
+  ///   .alloc::<ValueLog>(1)
+  ///   .unwrap();
+  ///
+  /// assert_eq!(log.data_offset(), 9); // header size is 8, so data start at 9.
+  ///
+  /// let log = Builder::new()
+  ///   .with_capacity(100)
+  ///   .with_reserved(8)
+  ///   .alloc::<ValueLog>(1)
+  ///   .unwrap();
+  ///
+  /// assert_eq!(log.data_offset(), 17); // header size is 8, reserved is 8, so data start at 17.
+  /// ```
+  fn data_offset(&self) -> usize {
+    Allocator::data_offset(self.allocator())
+  }
+
   /// Returns the path of the log.
   ///
   /// If the log is in memory, this method will return `None`.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync::ValueLog, Builder, Log};
+  ///
+  /// let log = Builder::new()
+  ///   .with_capacity(100)
+  ///   .alloc::<ValueLog>(1)
+  ///   .unwrap();
+  ///
+  /// assert_eq!(log.path(), None);
+  ///
+  /// let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+  /// # std::fs::remove_file(&path);
+  /// let log = unsafe {
+  ///   Builder::new()
+  ///     .with_capacity(100)
+  ///     .with_create(true)
+  ///     .with_write(true)
+  ///     .with_read(true)
+  ///     .map_mut::<ValueLog, _>(&path, 0)
+  ///     .unwrap()
+  /// };
+  ///
+  /// assert_eq!(log.path().map(|p| p.as_path()), Some(path.as_ref()));
+  /// ```
   #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
   #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
   #[inline]
@@ -44,18 +154,109 @@ pub trait Log: sealed::Sealed {
   }
 
   /// Returns `true` if the log is in memory.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync::ValueLog, Builder, Log};
+  ///
+  /// let log = Builder::new()
+  ///   .with_capacity(100)
+  ///   .alloc::<ValueLog>(1)
+  ///   .unwrap();
+  ///
+  /// assert!(log.in_memory());
+  ///
+  /// let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+  /// # std::fs::remove_file(&path);
+  ///
+  /// let log = unsafe {
+  ///   Builder::new()
+  ///     .with_capacity(100)
+  ///     .with_create(true)
+  ///     .with_write(true)
+  ///     .with_read(true)
+  ///     .map_mut::<ValueLog, _>(&path, 0)
+  ///     .unwrap()
+  /// };
+  ///
+  /// assert!(!log.in_memory());
+  /// ```
   #[inline]
   fn in_memory(&self) -> bool {
     self.allocator().is_inmemory()
   }
 
   /// Returns `true` if the log is on disk.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync::ValueLog, Builder, Log};
+  ///
+  /// let log = Builder::new()
+  ///   .with_capacity(100)
+  ///   .alloc::<ValueLog>(1)
+  ///   .unwrap();
+  ///
+  /// assert!(!log.on_disk());
+  ///
+  /// let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+  /// # std::fs::remove_file(&path);
+  ///
+  /// let log = unsafe {
+  ///   Builder::new()
+  ///     .with_capacity(100)
+  ///     .with_create(true)
+  ///     .with_write(true)
+  ///     .with_read(true)
+  ///     .map_mut::<ValueLog, _>(&path, 0)
+  ///     .unwrap()
+  /// };
+  ///
+  /// assert!(log.on_disk());
+  /// ```
   #[inline]
   fn on_disk(&self) -> bool {
     self.allocator().is_ondisk()
   }
 
   /// Returns `true` if the log is using a memory map backend.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync::ValueLog, Builder, Log};
+  ///
+  /// let log = Builder::new()
+  ///   .with_capacity(100)
+  ///   .alloc::<ValueLog>(1)
+  ///   .unwrap();
+  ///
+  /// assert!(!log.is_map());
+  ///
+  /// let log = Builder::new()
+  ///   .with_capacity(100)
+  ///   .map_anon::<ValueLog>(0)
+  ///   .unwrap();
+  ///
+  /// assert!(log.is_map());
+  ///
+  /// let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+  /// # std::fs::remove_file(&path);
+  ///
+  /// let log = unsafe {
+  ///   Builder::new()
+  ///     .with_capacity(100)
+  ///     .with_create(true)
+  ///     .with_write(true)
+  ///     .with_read(true)
+  ///     .map_mut::<ValueLog, _>(&path, 0)
+  ///     .unwrap()
+  /// };
+  ///
+  /// assert!(log.is_map());
+  /// ```
   #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
   #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
   #[inline]
@@ -68,6 +269,21 @@ pub trait Log: sealed::Sealed {
   /// ## Safety
   /// - The writer must ensure that the returned slice is not modified.
   /// - This method is not thread-safe, so be careful when using it.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync::ValueLog, Builder, Log};
+  ///
+  /// let log = Builder::new()
+  ///   .with_capacity(100)
+  ///   .with_reserved(8)
+  ///   .alloc::<ValueLog>(1)
+  ///   .unwrap();
+  ///
+  /// let reserved = unsafe { log.reserved_slice() };
+  /// assert_eq!(reserved.len(), 8);
+  /// ```
   #[inline]
   unsafe fn reserved_slice(&self) -> &[u8] {
     let reserved = self.options().reserved();
@@ -78,27 +294,6 @@ pub trait Log: sealed::Sealed {
     let allocator = self.allocator();
     let reserved_slice = allocator.reserved_slice();
     &reserved_slice[HEADER_SIZE..]
-  }
-
-  /// Returns the mutable reference to the reserved slice.
-  ///
-  /// ## Safety
-  /// - The caller must ensure that the there is no others accessing reserved slice for either read or write.
-  /// - This method is not thread-safe, so be careful when using it.
-  #[allow(clippy::mut_from_ref)]
-  #[inline]
-  unsafe fn reserved_slice_mut(&self) -> &mut [u8]
-  where
-    Self: Mutable,
-  {
-    let reserved = self.options().reserved();
-    if reserved == 0 {
-      return &mut [];
-    }
-
-    let allocator = self.allocator();
-    let reserved_slice = allocator.reserved_slice_mut();
-    &mut reserved_slice[HEADER_SIZE..]
   }
 
   /// Locks the underlying file for exclusive access, only works on mmap with a file backend.
@@ -270,13 +465,84 @@ pub trait Log: sealed::Sealed {
   unsafe fn munlock(&self, offset: usize, len: usize) -> std::io::Result<()> {
     self.allocator().munlock(offset, len)
   }
+}
+
+/// Extension methods for [`Log`].
+pub trait LogExt: Log {
+  /// Flushes the whole log to the given writer.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync::ValueLog, Builder, Log, LogExt};
+  ///
+  /// let log = Builder::new()
+  ///   .with_capacity(100)
+  ///   .alloc::<ValueLog>(1)
+  ///   .unwrap();
+  ///
+  /// let mut buf = Vec::new();
+  /// log.flush_to(&mut buf).unwrap();
+  /// let data_offset = log.data_offset();
+  /// assert_eq!(buf.len(), data_offset);
+  /// ```
+  #[cfg(feature = "std")]
+  #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+  #[inline]
+  fn flush_to(&self, w: &mut impl std::io::Write) -> std::io::Result<()> {
+    w.write_all(self.allocator().allocated_memory())
+  }
+}
+
+impl<L: Log> LogExt for L {}
+
+/// The abstraction for the common mutable methods of log.
+pub trait MutableLog: Log + Mutable {
+  /// Returns the mutable reference to the reserved slice.
+  ///
+  /// ## Safety
+  /// - The caller must ensure that the there is no others accessing reserved slice for either read or write.
+  /// - This method is not thread-safe, so be careful when using it.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync::ValueLog, Builder, Log, MutableLog};
+  ///
+  /// let log = Builder::new()
+  ///   .with_capacity(100)
+  ///   .with_reserved(8)
+  ///   .alloc::<ValueLog>(1)
+  ///   .unwrap();
+  ///
+  /// let reserved = unsafe { log.reserved_slice_mut() };
+  /// assert_eq!(reserved.len(), 8);
+  ///
+  /// reserved.copy_from_slice(b"mysanity");
+  /// assert_eq!(reserved, b"mysanity");
+  ///
+  /// let reserved = unsafe { log.reserved_slice() };
+  /// assert_eq!(reserved, b"mysanity");
+  /// ```
+  #[allow(clippy::mut_from_ref)]
+  #[inline]
+  unsafe fn reserved_slice_mut(&self) -> &mut [u8] {
+    let reserved = self.options().reserved();
+    if reserved == 0 {
+      return &mut [];
+    }
+
+    let allocator = self.allocator();
+    let reserved_slice = allocator.reserved_slice_mut();
+    &mut reserved_slice[HEADER_SIZE..]
+  }
 
   /// Flushes the memory-mapped file to disk.
   ///
   /// ## Example
   ///
   /// ```rust
-  /// use valog::{sync::ValueLog, Builder, Log};
+  /// use valog::{sync::ValueLog, Builder, MutableLog};
   /// # let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
   /// # std::fs::remove_file(&path);
   /// /// Create a new file without automatic syncing.
@@ -294,10 +560,7 @@ pub trait Log: sealed::Sealed {
   #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
   #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
   #[inline]
-  fn flush(&self) -> std::io::Result<()>
-  where
-    Self: Mutable,
-  {
+  fn flush(&self) -> std::io::Result<()> {
     self.allocator().flush()
   }
 
@@ -306,7 +569,7 @@ pub trait Log: sealed::Sealed {
   /// ## Example
   ///
   /// ```rust
-  /// use valog::{sync::ValueLog, Builder, Log};
+  /// use valog::{sync::ValueLog, Builder, MutableLog};
   /// # let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
   /// # std::fs::remove_file(&path);
   /// /// Create a new file without automatic syncing.
@@ -325,10 +588,7 @@ pub trait Log: sealed::Sealed {
   #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
   #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
   #[inline]
-  fn flush_async(&self) -> std::io::Result<()>
-  where
-    Self: Mutable,
-  {
+  fn flush_async(&self) -> std::io::Result<()> {
     self.allocator().flush_async()
   }
 
@@ -337,7 +597,7 @@ pub trait Log: sealed::Sealed {
   /// ## Example
   ///
   /// ```rust
-  /// use valog::{sync::ValueLog, Builder, Log};
+  /// use valog::{sync::ValueLog, Builder, MutableLog};
   /// # let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
   /// # std::fs::remove_file(&path);
   ///
@@ -357,10 +617,7 @@ pub trait Log: sealed::Sealed {
   #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
   #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
   #[inline]
-  fn flush_range(&self, offset: usize, len: usize) -> std::io::Result<()>
-  where
-    Self: Mutable,
-  {
+  fn flush_range(&self, offset: usize, len: usize) -> std::io::Result<()> {
     self.allocator().flush_range(offset, len)
   }
 
@@ -369,7 +626,7 @@ pub trait Log: sealed::Sealed {
   /// ## Example
   ///
   /// ```rust
-  /// use valog::{sync::ValueLog, Builder, Log};
+  /// use valog::{sync::ValueLog, Builder, MutableLog};
   /// # let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
   /// # std::fs::remove_file(&path);
   /// /// Create a new file without automatic syncing.
@@ -388,13 +645,12 @@ pub trait Log: sealed::Sealed {
   #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
   #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
   #[inline]
-  fn flush_async_range(&self, offset: usize, len: usize) -> std::io::Result<()>
-  where
-    Self: Mutable,
-  {
+  fn flush_async_range(&self, offset: usize, len: usize) -> std::io::Result<()> {
     self.allocator().flush_async_range(offset, len)
   }
 }
+
+impl<L: Log + Mutable> MutableLog for L {}
 
 pub trait AsLog {
   type Log;
