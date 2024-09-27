@@ -23,3 +23,8 @@ crate::__common_tests!(sync(crate::sync::ValueLog) {
 crate::__common_tests!(sync(crate::sync::ValueLog)::spawn {
   concurrent_basic,
 });
+
+#[cfg(all(test, feature = "std"))]
+crate::__common_tests!(generic_sync(crate::sync::GenericValueLog<String>)::spawn {
+  generic_concurrent_basic,
+});

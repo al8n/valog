@@ -39,6 +39,23 @@ fn test_checksum_mismatch() {
   }
   let err = log.read(vp.offset(), vp.size()).unwrap_err();
   assert!(matches!(err, Error::ChecksumMismatch));
+
+  let log = Builder::new()
+    .with_capacity(100)
+    .alloc::<crate::sync::GenericValueLog<String>>(0)
+    .unwrap();
+
+  let vp = log.insert(&"Hello, valog!".to_string()).unwrap();
+  assert_eq!(*vp.id(), 0);
+  unsafe {
+    log
+      .allocator()
+      .raw_mut_ptr()
+      .add(vp.offset() as usize)
+      .write(0);
+  }
+  let err = unsafe { log.read(vp.offset(), vp.size()).unwrap_err() };
+  assert!(matches!(err, Error::ChecksumMismatch));
 }
 
 #[test]
@@ -127,6 +144,7 @@ fn test_reopen_and_concurrent_read() {
       .map::<ImmutableValueLog, _>(&p, 0)
       .unwrap()
   };
+  assert_eq!(*log.id(), 0);
 
   let (tx, rx) = crossbeam_channel::bounded(1000);
 
@@ -137,6 +155,62 @@ fn test_reopen_and_concurrent_read() {
     std::thread::spawn(move || {
       let bytes = l.read(vp.offset(), vp.size()).unwrap();
       let val: u32 = std::str::from_utf8(bytes).unwrap().parse().unwrap();
+      tx.send(val).unwrap();
+    });
+  });
+
+  let mut data = Vec::with_capacity(1000);
+  for _ in 0..1000 {
+    data.push(rx.recv().unwrap());
+  }
+
+  data.sort_unstable();
+  assert_eq!(data, (0..1000).collect::<Vec<_>>());
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
+#[cfg(all(feature = "memmap", not(target_family = "wasm")))]
+fn test_generic_reopen_and_concurrent_read() {
+  use crate::sync::{GenericValueLog, ImmutableGenericValueLog};
+
+  let dir = tempfile::tempdir().unwrap();
+  let p = dir.path().join("test_generic_reopen_and_concurrent_read");
+
+  let log = unsafe {
+    Builder::new()
+      .with_capacity(MB)
+      .with_create_new(true)
+      .with_read(true)
+      .with_write(true)
+      .map_mut::<GenericValueLog<String>, _>(&p, 0)
+      .unwrap()
+  };
+
+  let ptrs = (0..1000u32)
+    .map(|i| log.insert(&i.to_string()).unwrap())
+    .collect::<Vec<_>>();
+
+  drop(log);
+
+  let log = unsafe {
+    Builder::new()
+      .with_read(true)
+      .with_lock_meta(true)
+      .map::<ImmutableGenericValueLog<String>, _>(&p, 0)
+      .unwrap()
+  };
+  assert_eq!(*log.id(), 0);
+
+  let (tx, rx) = crossbeam_channel::bounded(1000);
+
+  ptrs.into_iter().for_each(|vp| {
+    let l = log.clone();
+    let tx = tx.clone();
+
+    std::thread::spawn(move || {
+      let val = unsafe { l.read(vp.offset(), vp.size()).unwrap() };
+      let val: u32 = val.parse().unwrap();
       tx.send(val).unwrap();
     });
   });
@@ -189,6 +263,53 @@ fn test_reopen_and_read() {
 
       let bytes = l.read(vp.offset(), vp.size()).unwrap();
       let val: u32 = std::str::from_utf8(bytes).unwrap().parse().unwrap();
+      val
+    })
+    .collect::<Vec<_>>();
+
+  data.sort_unstable();
+  assert_eq!(data, (0..1000).collect::<Vec<_>>());
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
+#[cfg(all(feature = "memmap", not(target_family = "wasm")))]
+fn test_generic_reopen_and_read() {
+  use crate::unsync::{GenericValueLog, ImmutableGenericValueLog};
+
+  let dir = tempfile::tempdir().unwrap();
+  let p = dir.path().join("test_generic_reopen_and_read");
+
+  let log = unsafe {
+    Builder::new()
+      .with_capacity(MB)
+      .with_create_new(true)
+      .with_read(true)
+      .with_write(true)
+      .map_mut::<GenericValueLog<String>, _>(&p, 0)
+      .unwrap()
+  };
+
+  let ptrs = (0..1000u32)
+    .map(|i| log.insert(&i.to_string()).unwrap())
+    .collect::<Vec<_>>();
+
+  drop(log);
+
+  let log = unsafe {
+    Builder::new()
+      .with_read(true)
+      .map::<ImmutableGenericValueLog<String>, _>(&p, 0)
+      .unwrap()
+  };
+
+  let mut data = ptrs
+    .into_iter()
+    .map(|vp| {
+      let l = log.clone();
+
+      let val = unsafe { l.read(vp.offset(), vp.size()).unwrap() };
+      let val: u32 = val.parse().unwrap();
       val
     })
     .collect::<Vec<_>>();
@@ -457,6 +578,70 @@ where
           let val: u32 = bytes.parse().unwrap();
           val
         };
+
+        data.lock().unwrap().push(val);
+      }
+
+      wg.done();
+    });
+  });
+
+  drop(tx);
+  wg.wait();
+
+  let mut data = data.lock().unwrap();
+  data.sort_unstable();
+  assert_eq!(data.as_slice(), &(0..N).collect::<Vec<_>>());
+}
+
+#[cfg(feature = "std")]
+pub(crate) fn generic_concurrent_basic<L>(l: L)
+where
+  L: Clone + GenericLogWriter<Type = String> + GenericLogReader<Type = String> + Send + 'static,
+  L::Id: core::fmt::Debug + CheapClone + Send,
+{
+  use std::sync::{Arc, Mutex};
+  use wg::WaitGroup;
+
+  #[cfg(not(miri))]
+  const N: u32 = 500;
+
+  #[cfg(miri)]
+  const N: u32 = 100;
+
+  let (tx, rx) = crossbeam_channel::bounded(N as usize);
+  let data = Arc::new(Mutex::new(Vec::new()));
+  let wg = WaitGroup::new();
+
+  // concurrent write
+  (0..N).for_each(|i| {
+    let l = l.clone();
+    let tx = tx.clone();
+    let wg = wg.add(1);
+    std::thread::spawn(move || {
+      let val = i.to_string();
+      let vp = match i % 2 {
+        0 => l.insert(&val).unwrap(),
+        1 => l.insert_tombstone(&val).unwrap(),
+        _ => unreachable!(),
+      };
+
+      tx.send(vp).unwrap();
+      wg.done();
+    });
+  });
+
+  // concurrent read
+  (0..N).for_each(|_| {
+    let l = l.clone();
+    let rx = rx.clone();
+    let data = data.clone();
+
+    let wg = wg.add(1);
+    std::thread::spawn(move || {
+      for vp in rx {
+        let bytes = unsafe { l.read(vp.offset(), vp.size()).unwrap() };
+        let val: u32 = bytes.parse().unwrap();
 
         data.lock().unwrap().push(val);
       }
