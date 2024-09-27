@@ -25,6 +25,8 @@ memmap = ["std", "rarena-allocator/memmap"]
 xxhash64 = ["dbutils/xxhash64"]
 xxhash3 = ["dbutils/xxhash3"]
 
+tracing = ["dbutils/tracing"]
+
 [dependencies]
 dbutils = { version = "0.4", default-features = false, features = ["crc32fast"] }
 rarena-allocator = { version = "0.4", default-features = false }

@@ -1,5 +1,5 @@
 pub use rarena_allocator::Freelist;
-use rarena_allocator::Options as LogOptions;
+use rarena_allocator::Options as ArenaOptions;
 
 pub(super) const CURRENT_VERSION: u16 = 0;
 
@@ -449,8 +449,8 @@ impl Options {
 impl Options {
   #[allow(clippy::wrong_self_convention)]
   #[inline]
-  pub(super) const fn to_arena_options(&self) -> LogOptions {
-    let opts = LogOptions::new()
+  pub(super) const fn to_arena_options(&self) -> ArenaOptions {
+    let opts = ArenaOptions::new()
       .with_magic_version(CURRENT_VERSION)
       .with_reserved(HEADER_SIZE as u32 + self.reserved())
       .with_unify(self.unify())
@@ -460,6 +460,7 @@ impl Options {
     #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
     {
       opts
+        .with_lock_meta(self.lock_meta())
         .with_create(self.create())
         .with_create_new(self.create_new())
         .with_read(self.read())
