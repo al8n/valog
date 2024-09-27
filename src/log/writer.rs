@@ -218,7 +218,7 @@ where
     let cap = allocator.capacity() as u64;
     if page_size >= (begin_offset + len) as u64 {
       allocator
-        .flush_range(0, begin_offset + len)
+        .flush_range(0, (begin_offset + len).min(cap as usize))
         .map_err(|e| Either::Right(e.into()))?
     } else if page_size >= cap {
       allocator.flush().map_err(|e| Either::Right(e.into()))?;
