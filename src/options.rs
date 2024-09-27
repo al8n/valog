@@ -228,7 +228,7 @@ impl Options {
   /// ```
   /// use valog::options::Options;
   ///
-  /// let opts = Options::new().with_unify(true);
+  /// let opts = Options::default().with_unify(true);
   /// ```
   #[inline]
   pub const fn with_unify(mut self, unify: bool) -> Self {
@@ -357,6 +357,7 @@ impl Options {
   /// use valog::options::Options;
   ///
   /// let options = Options::new().with_maximum_value_size(1024);
+  /// assert_eq!(options.maximum_value_size(), 1024);
   /// ```
   #[inline]
   pub const fn maximum_value_size(&self) -> u32 {

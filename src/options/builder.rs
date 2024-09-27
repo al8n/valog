@@ -289,7 +289,8 @@ impl<S> Builder<S> {
   /// ```
   /// use valog::Builder;
   ///
-  /// let builder = Builder::new().with_maximum_value_size(1024);
+  /// let builder = Builder::default().with_maximum_value_size(1024);
+  /// assert_eq!(builder.maximum_value_size(), 1024);
   /// ```
   #[inline]
   pub const fn maximum_value_size(&self) -> u32 {
@@ -306,6 +307,7 @@ impl<S> Builder<S> {
   /// use valog::Builder;
   ///
   /// let builder = Builder::new().with_capacity(1024);
+  /// assert_eq!(builder.capacity(), 1024);
   /// ```
   #[inline]
   pub const fn capacity(&self) -> u32 {

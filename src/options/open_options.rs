@@ -6,16 +6,19 @@ use super::{
 use crate::{sealed::Constructor, Frozen, Mutable};
 
 #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
+#[inline]
 fn bad_magic_text() -> std::io::Error {
   std::io::Error::new(std::io::ErrorKind::InvalidData, "bad magic text")
 }
 
 #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
+#[inline]
 fn bad_magic_version() -> std::io::Error {
   std::io::Error::new(std::io::ErrorKind::InvalidData, "bad magic version")
 }
 
 #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
+#[inline]
 fn bad_version() -> std::io::Error {
   std::io::Error::new(std::io::ErrorKind::InvalidData, "bad version")
 }
@@ -492,7 +495,6 @@ impl<S> Builder<S> {
     let Self { opts, cks } = self;
     let unify = opts.unify;
     let mv = opts.magic_version;
-    #[allow(clippy::bind_instead_of_map)]
     opts
       .to_arena_options()
       .map_anon::<C::Allocator>()

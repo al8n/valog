@@ -88,6 +88,7 @@ fn test_basic() {
 
   let log = Builder::new()
     .with_capacity(100)
+    .with_lock_meta(true)
     .alloc::<crate::sync::GenericValueLog<String>>(0)
     .unwrap();
   assert_eq!(*log.id(), 0);
@@ -122,6 +123,7 @@ fn test_reopen_and_concurrent_read() {
   let log = unsafe {
     Builder::new()
       .with_read(true)
+      .with_lock_meta(true)
       .map::<ImmutableValueLog, _>(&p, 0)
       .unwrap()
   };
