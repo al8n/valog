@@ -258,7 +258,7 @@ pub trait Log: sealed::Sealed {
   ///     .map_mut::<ValueLog, _>(&path, 0)
   ///     .unwrap()
   /// };
-  /// assert!(log.in_map());
+  /// assert!(log.is_map());
   /// # }
   /// ```
   #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
