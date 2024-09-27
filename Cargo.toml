@@ -16,6 +16,11 @@ path = "benches/foo.rs"
 name = "foo"
 harness = false
 
+[[example]]
+path = "examples/concurrent_rw.rs"
+name = "concurrent_rw"
+required-features = ["memmap"]
+
 [features]
 default = ["memmap", "rarena-allocator/default", "dbutils/default"]
 alloc = ["rarena-allocator/alloc", "dbutils/alloc"]
