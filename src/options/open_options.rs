@@ -495,12 +495,11 @@ impl<S> Builder<S> {
     let Self { opts, cks } = self;
     let unify = opts.unify;
     let mv = opts.magic_version;
-    #[allow(clippy::bind_instead_of_map)]
     opts
       .to_arena_options()
       .map_anon::<C::Allocator>()
       .map_err(Into::into)
-      .and_then(|arena| {
+      .map(|arena| {
         if unify {
           unsafe {
             let slice = arena.reserved_slice_mut();
@@ -508,17 +507,7 @@ impl<S> Builder<S> {
           }
         }
 
-        let log = C::construct(fid, arena, cks, opts);
-        // Lock the memory of first page to prevent it from being swapped out.
-        #[cfg(not(windows))]
-        if opts.lock_meta {
-          unsafe {
-            let arena = log.allocator();
-            arena.mlock(0, arena.page_size().min(arena.capacity()))?;
-          }
-        }
-
-        Ok(log)
+        C::construct(fid, arena, cks, opts)
       })
   }
 
@@ -630,7 +619,6 @@ impl<S> Builder<S> {
 
     let magic_version = opts.magic_version();
 
-    #[allow(clippy::bind_instead_of_map)]
     opts
       .to_arena_options()
       .with_unify(true)
@@ -642,17 +630,6 @@ impl<S> Builder<S> {
           Err(Either::Right(bad_version()))
         } else {
           let log = C::construct(fid, arena, cks, opts.with_magic_version(magic_version));
-          // Lock the memory of first page to prevent it from being swapped out.
-          #[cfg(not(windows))]
-          if opts.lock_meta {
-            unsafe {
-              let allocator = log.allocator();
-              allocator
-                .mlock(0, allocator.page_size().min(allocator.capacity()))
-                .map_err(Either::Right)?;
-            }
-          }
-
           Ok(log)
         }
       })
@@ -747,7 +724,6 @@ impl<S> Builder<S> {
     let path = path_builder().map_err(Either::Left)?;
     let exist = path.exists();
 
-    #[allow(clippy::bind_instead_of_map)]
     opts
       .to_arena_options()
       .with_unify(true)
@@ -765,17 +741,6 @@ impl<S> Builder<S> {
           Err(Either::Right(bad_version()))
         } else {
           let log = C::construct(fid, arena, cks, opts);
-          // Lock the memory of first page to prevent it from being swapped out.
-          #[cfg(not(windows))]
-          if opts.lock_meta {
-            unsafe {
-              let allocator = log.allocator();
-              allocator
-                .mlock(0, allocator.page_size().min(allocator.capacity()))
-                .map_err(Either::Right)?;
-            }
-          }
-
           Ok(log)
         }
       })
