@@ -231,7 +231,6 @@ macro_rules! __common_tests {
           fn [<test_ $method _map_anon>]() {
             let log = $crate::Builder::new()
               .with_capacity($crate::tests::MB)
-              .with_lock_meta(true)
               .map_anon::<$ty>(0)
               .unwrap();
             $crate::tests::$method(log);
@@ -243,7 +242,6 @@ macro_rules! __common_tests {
             let log = $crate::Builder::new()
               .with_capacity($crate::tests::MB)
               .with_unify(true)
-              .with_lock_meta(true)
               .map_anon::<$ty>(0)
               .unwrap();
             $crate::tests::$method(log);
