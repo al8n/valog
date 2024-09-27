@@ -19,7 +19,7 @@ crate::__common_tests!(sync(crate::sync::ValueLog) {
   basic,
 });
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 crate::__common_tests!(sync(crate::sync::ValueLog)::spawn {
   concurrent_basic,
 });

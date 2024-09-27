@@ -280,6 +280,7 @@ macro_rules! __common_tests {
       mod [< concurrent_ $mod >] {
         $(
           #[test]
+          #[cfg(feature = "std")]
           fn [<test_ $method _vec>]() {
             let log = $crate::Builder::new()
               .with_capacity($crate::tests::MB)
@@ -289,6 +290,7 @@ macro_rules! __common_tests {
           }
 
           #[test]
+          #[cfg(feature = "std")]
           fn [<test_ $method _vec_unify>]() {
             let log = $crate::Builder::new()
               .with_capacity($crate::tests::MB)
