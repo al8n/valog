@@ -208,7 +208,14 @@ where
     let mut vacant_buf = VacantBuffer::new(value_len as usize, ptr);
     builder(&mut vacant_buf).map_err(Either::Left)?;
 
-    let checksum = l.checksum(&vacant_buf);
+    #[cfg(feature = "tracing")]
+    {
+      if vacant_buf.remaining() > 0 {
+        tracing::warn!("valog: the vacant buffer is not fully filled");
+      }
+    }
+
+    let checksum = l.checksum(&buf);
     buf.put_u64_le_unchecked(checksum);
   }
 

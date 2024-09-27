@@ -355,28 +355,34 @@ where
   const N: u32 = 200;
 
   let data = (0..N)
-    .map(|i| match i % 6 {
-      0 => l.insert(&i.to_be_bytes()).unwrap(),
-      1 => l.insert_generic::<u32>(&i).unwrap(),
-      2 => l
-        .insert_with(ValueBuilder::new(4, |buf: &mut VacantBuffer<'_>| {
-          buf.put_u32_be(i)
-        }))
-        .unwrap(),
-      3 => l.insert_tombstone(&i.to_be_bytes()).unwrap(),
-      4 => l.insert_generic_tombstone::<u32>(&i).unwrap(),
-      5 => l
-        .insert_tombstone_with(ValueBuilder::new(4, |buf: &mut VacantBuffer<'_>| {
-          buf.put_u32_be(i)
-        }))
-        .unwrap(),
-      _ => unreachable!(),
+    .map(|i| {
+      let val = i.to_string();
+      match i % 6 {
+        0 => l.insert(val.as_bytes()).unwrap(),
+        1 => l.insert_generic::<String>(&val).unwrap(),
+        2 => l
+          .insert_with(ValueBuilder::new(
+            val.len() as u32,
+            |buf: &mut VacantBuffer<'_>| buf.put_slice(val.as_bytes()),
+          ))
+          .unwrap(),
+        3 => l.insert_tombstone(val.as_bytes()).unwrap(),
+        4 => l.insert_generic_tombstone::<String>(&val).unwrap(),
+        5 => l
+          .insert_tombstone_with(ValueBuilder::new(
+            val.len() as u32,
+            |buf: &mut VacantBuffer<'_>| buf.put_slice(val.as_bytes()),
+          ))
+          .unwrap(),
+        _ => unreachable!(),
+      }
     })
     .collect::<Vec<_>>();
 
   for (i, vp) in data.iter().enumerate() {
     let bytes = l.read(vp.offset(), vp.size()).unwrap();
-    assert_eq!(bytes, (i as u32).to_be_bytes());
+    let val: u32 = std::str::from_utf8(bytes).unwrap().parse().unwrap();
+    assert_eq!(i, val as usize);
   }
 }
 
@@ -387,6 +393,7 @@ where
   L::Id: core::fmt::Debug + CheapClone + Send,
 {
   use std::sync::{Arc, Mutex};
+  use wg::WaitGroup;
 
   #[cfg(not(miri))]
   const N: u32 = 1000;
@@ -396,33 +403,37 @@ where
 
   let (tx, rx) = crossbeam_channel::bounded(N as usize);
   let data = Arc::new(Mutex::new(Vec::new()));
+  let wg = WaitGroup::new();
 
   // concurrent write
   (0..N).for_each(|i| {
     let l = l.clone();
     let tx = tx.clone();
-
+    let wg = wg.add(1);
     std::thread::spawn(move || {
       let val = i.to_string();
       let vp = match i % 6 {
         0 => l.insert(val.as_bytes()).unwrap(),
         1 => l.insert_generic::<String>(&val).unwrap(),
         2 => l
-          .insert_with(ValueBuilder::new(4, |buf: &mut VacantBuffer<'_>| {
-            buf.put_slice(val.as_bytes())
-          }))
+          .insert_with(ValueBuilder::new(
+            val.len() as u32,
+            |buf: &mut VacantBuffer<'_>| buf.put_slice(val.as_bytes()),
+          ))
           .unwrap(),
         3 => l.insert_tombstone(val.as_bytes()).unwrap(),
         4 => l.insert_generic_tombstone::<String>(&val).unwrap(),
         5 => l
-          .insert_tombstone_with(ValueBuilder::new(4, |buf: &mut VacantBuffer<'_>| {
-            buf.put_slice(val.as_bytes())
-          }))
+          .insert_tombstone_with(ValueBuilder::new(
+            val.len() as u32,
+            |buf: &mut VacantBuffer<'_>| buf.put_slice(val.as_bytes()),
+          ))
           .unwrap(),
         _ => unreachable!(),
       };
 
       tx.send(vp).unwrap();
+      wg.done();
     });
   });
 
@@ -432,6 +443,7 @@ where
     let rx = rx.clone();
     let data = data.clone();
 
+    let wg = wg.add(1);
     std::thread::spawn(move || {
       for vp in rx {
         let val = if i % 2 == 0 {
@@ -446,14 +458,13 @@ where
 
         data.lock().unwrap().push(val);
       }
+
+      wg.done();
     });
   });
 
   drop(tx);
-
-  while data.lock().unwrap().len() < N as usize {
-    std::thread::yield_now();
-  }
+  wg.wait();
 
   let mut data = data.lock().unwrap();
   data.sort_unstable();

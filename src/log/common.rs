@@ -87,7 +87,7 @@ pub trait Log: sealed::Sealed {
   ///   .alloc::<ValueLog>(1)
   ///   .unwrap();
   ///
-  /// assert_eq!(log.version(), 1);
+  /// assert_eq!(log.version(), 0);
   /// ```
   #[inline]
   fn version(&self) -> u16 {
