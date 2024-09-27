@@ -495,6 +495,7 @@ impl<S> Builder<S> {
     let Self { opts, cks } = self;
     let unify = opts.unify;
     let mv = opts.magic_version;
+    #[allow(clippy::bind_instead_of_map)]
     opts
       .to_arena_options()
       .map_anon::<C::Allocator>()
@@ -629,6 +630,7 @@ impl<S> Builder<S> {
 
     let magic_version = opts.magic_version();
 
+    #[allow(clippy::bind_instead_of_map)]
     opts
       .to_arena_options()
       .with_unify(true)
