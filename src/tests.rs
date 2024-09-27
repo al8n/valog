@@ -103,6 +103,9 @@ fn test_basic() {
   assert_eq!(*log.id(), 0);
   assert_eq!(log.options().capacity(), 100);
 
+  let empty = log.read(0, 0).unwrap();
+  assert_eq!(empty, &[]);
+
   let log = Builder::new()
     .with_capacity(100)
     .with_lock_meta(true)

@@ -308,6 +308,14 @@ pub trait Log: sealed::Sealed {
   ///
   /// let log = Builder::new()
   ///   .with_capacity(100)
+  ///   .alloc::<ValueLog>(1)
+  ///   .unwrap();
+  ///
+  /// let reserved = unsafe { log.reserved_slice() };
+  /// assert!(reserved.is_empty());
+  ///
+  /// let log = Builder::new()
+  ///   .with_capacity(100)
   ///   .with_reserved(8)
   ///   .alloc::<ValueLog>(1)
   ///   .unwrap();
@@ -539,6 +547,14 @@ pub trait MutableLog: Log + Mutable {
   ///
   /// ```rust
   /// use valog::{sync::ValueLog, Builder, Log, MutableLog};
+  ///
+  /// let log = Builder::new()
+  ///   .with_capacity(100)
+  ///   .alloc::<ValueLog>(1)
+  ///   .unwrap();
+  ///
+  /// let reserved = unsafe { log.reserved_slice_mut() };
+  /// assert!(reserved.is_empty());
   ///
   /// let log = Builder::new()
   ///   .with_capacity(100)

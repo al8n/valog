@@ -16,7 +16,7 @@ pub trait LogReader: Log {
   /// assert_eq!(data, b"Hello, valog!");
   /// ```
   fn read(&self, offset: u32, len: u32) -> Result<&[u8], Error> {
-    if offset == 0 && len == 0 {
+    if len == 0 {
       return Ok(&[]);
     }
 
@@ -119,29 +119,6 @@ pub trait GenericLogReader: Log {
   where
     Self::Type: Type;
 }
-
-// impl<L> Log for L
-// where
-//   L: AsLogReader + sealed::Sealed,
-//   L::Reader: LogReader,
-// {
-//   type Id = <L::Reader as Log>::Id;
-
-//   #[inline]
-//   fn id(&self) -> &Self::Id {
-//     self.as_reader().id()
-//   }
-
-//   #[inline]
-//   fn checksum(&self, bytes: &[u8]) -> u64 {
-//     self.as_reader().checksum(bytes)
-//   }
-
-//   #[inline]
-//   fn options(&self) -> &Options {
-//     self.as_reader().options()
-//   }
-// }
 
 impl<L> GenericLogReader for L
 where

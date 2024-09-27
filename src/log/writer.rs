@@ -20,14 +20,11 @@ pub trait LogWriter: Log {
   where
     Self::Id: CheapClone + core::fmt::Debug,
   {
-    insert_in::<_, ()>(
-      self,
-      ValueBuilder::new(value.len() as u32, |buf: &mut VacantBuffer<'_>| {
-        buf.put_slice_unchecked(value);
-        Ok(())
-      }),
-    )
-    .map_err(|e| e.unwrap_right())
+    let vb = ValueBuilder::new(value.len() as u32, |buf: &mut VacantBuffer<'_>| {
+      buf.put_slice_unchecked(value);
+      Ok(())
+    });
+    insert_in::<_, ()>(self, vb).map_err(|e| e.unwrap_right())
   }
 
   /// Inserts a tombstone value into the log.
