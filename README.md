@@ -21,7 +21,7 @@ English | [简体中文][zh-cn-url]
 
 ## Introduction
 
-This crate is designed for databases based on the WiscKey architecture, which separates the storage of keys from values. Consequently, this crate focuses exclusively on managing values. Users are responsible for storing the value pointers returned by the `write*` APIs.
+This crate is designed for databases based on the WiscKey architecture, which separates the storage of keys from values. Consequently, this crate focuses exclusively on managing values. Users are responsible for storing the `ValuePointer`s returned by the `write*` APIs.
 
 ### Features
 
@@ -51,6 +51,10 @@ This crate offers a robust solution for managing value storage in WiscKey-based 
   [dependencies]
   valog = { version = "0.1", default-features = false, features = ["alloc"] }
   ```
+
+## Example
+
+Please see [examples](./examples/).
 
 #### License
 
