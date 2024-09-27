@@ -214,10 +214,23 @@ where
 
   #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
   if opts.sync && allocator.is_ondisk() {
-    // TODO: we also need to flush the header
-    allocator
-      .flush_range(begin_offset, len)
-      .map_err(|e| Either::Right(e.into()))?
+    let page_size = allocator.page_size() as u64;
+    let data_offset = allocator.data_offset();
+    let cap = allocator.capacity() as u64;
+    if page_size >= (begin_offset + len) as u64 {
+      allocator
+        .flush_range(0, begin_offset + len)
+        .map_err(|e| Either::Right(e.into()))?
+    } else if page_size >= cap {
+      allocator.flush().map_err(|e| Either::Right(e.into()))?;
+    } else if 2 * page_size >= cap {
+      allocator.flush().map_err(|e| Either::Right(e.into()))?;
+    } else {
+      allocator
+        .flush_range(0, data_offset)
+        .and_then(|_| allocator.flush_range(begin_offset, len))
+        .map_err(|e| Either::Right(e.into()))?
+    }
   }
 
   // Safety: no need to drop

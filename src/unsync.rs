@@ -13,3 +13,8 @@ pub type ImmutableValueLog<I = u32, C = Crc32> = super::ImmutableValueLog<I, Are
 /// A generic value log that can only be used in single-threaded environments.
 pub type ImmutableGenericValueLog<T, I = u32, C = Crc32> =
   super::ImmutableGenericValueLog<T, I, Arena, C>;
+
+#[cfg(test)]
+crate::__common_tests!(unsync(crate::unsync::ValueLog) {
+  basic,
+});

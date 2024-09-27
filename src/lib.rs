@@ -17,6 +17,7 @@ mod log;
 pub use log::*;
 
 #[cfg(test)]
+#[macro_use]
 pub(crate) mod tests;
 
 /// Options for configuring the value log.

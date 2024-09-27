@@ -13,3 +13,13 @@ pub type ImmutableValueLog<I = u32, C = Crc32> = super::ImmutableValueLog<I, Are
 /// A generic value log that is lock-free, concurrent safe, and can be used in multi-threaded environments.
 pub type ImmutableGenericValueLog<T, I = u32, C = Crc32> =
   super::ImmutableGenericValueLog<T, I, Arena, C>;
+
+#[cfg(test)]
+crate::__common_tests!(sync(crate::sync::ValueLog) {
+  basic,
+});
+
+#[cfg(test)]
+crate::__common_tests!(sync(crate::sync::ValueLog)::spawn {
+  concurrent_basic,
+});

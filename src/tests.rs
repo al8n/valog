@@ -1,8 +1,11 @@
+use dbutils::CheapClone;
 use error::Error;
 use rarena_allocator::Allocator;
 use sealed::Sealed;
 
 use super::*;
+
+pub(crate) const MB: u32 = 1024 * 1024;
 
 #[test]
 fn test_read_out_of_bounds() {
@@ -89,4 +92,359 @@ fn test_basic() {
     .unwrap();
   assert_eq!(*log.id(), 0);
   assert_eq!(log.options().capacity(), 100);
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_reopen_and_concurrent_read() {
+  use crate::sync::{ImmutableValueLog, ValueLog};
+
+  let dir = tempfile::tempdir().unwrap();
+  let p = dir.path().join("test_reopen_and_concurrent_read");
+
+  let log = unsafe {
+    Builder::new()
+      .with_capacity(100)
+      .with_create_new(true)
+      .with_read(true)
+      .with_write(true)
+      .map_mut::<ValueLog, _>(&p, 0)
+      .unwrap()
+  };
+
+  let ptrs = (0..1000u32)
+    .map(|i| log.insert(i.to_string().as_bytes()).unwrap())
+    .collect::<Vec<_>>();
+
+  drop(log);
+
+  let log = unsafe {
+    Builder::new()
+      .with_capacity(100)
+      .with_read(true)
+      .map::<ImmutableValueLog, _>(&p, 0)
+      .unwrap()
+  };
+
+  let (tx, rx) = crossbeam_channel::bounded(1000);
+
+  ptrs.into_iter().for_each(|vp| {
+    let l = log.clone();
+    let tx = tx.clone();
+
+    std::thread::spawn(move || {
+      let bytes = l.read(vp.offset(), vp.size()).unwrap();
+      let val: u32 = std::str::from_utf8(bytes).unwrap().parse().unwrap();
+      tx.send(val).unwrap();
+    });
+  });
+
+  let mut data = Vec::with_capacity(1000);
+  for _ in 0..1000 {
+    data.push(rx.recv().unwrap());
+  }
+
+  data.sort_unstable();
+  assert_eq!(data, (0..1000).collect::<Vec<_>>());
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_reopen_and_read() {
+  use crate::unsync::{ImmutableValueLog, ValueLog};
+
+  let dir = tempfile::tempdir().unwrap();
+  let p = dir.path().join("test_reopen_and_read");
+
+  let log = unsafe {
+    Builder::new()
+      .with_capacity(100)
+      .with_create_new(true)
+      .with_read(true)
+      .with_write(true)
+      .map_mut::<ValueLog, _>(&p, 0)
+      .unwrap()
+  };
+
+  let ptrs = (0..1000u32)
+    .map(|i| log.insert(i.to_string().as_bytes()).unwrap())
+    .collect::<Vec<_>>();
+
+  drop(log);
+
+  let log = unsafe {
+    Builder::new()
+      .with_capacity(100)
+      .with_read(true)
+      .map::<ImmutableValueLog, _>(&p, 0)
+      .unwrap()
+  };
+
+  let mut data = ptrs
+    .into_iter()
+    .map(|vp| {
+      let l = log.clone();
+
+      let bytes = l.read(vp.offset(), vp.size()).unwrap();
+      let val: u32 = std::str::from_utf8(bytes).unwrap().parse().unwrap();
+      val
+    })
+    .collect::<Vec<_>>();
+
+  data.sort_unstable();
+  assert_eq!(data, (0..1000).collect::<Vec<_>>());
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __common_tests {
+  ($mod:ident($ty:ty) {
+    $($method:ident),+ $(,)?
+  }) => {
+    paste::paste! {
+      #[cfg(test)]
+      mod $mod {
+        $(
+          #[test]
+          fn [<test_ $method _vec>]() {
+            let log = $crate::Builder::new()
+              .with_capacity($crate::tests::MB)
+              .alloc::<$ty>(0)
+              .unwrap();
+            $crate::tests::$method(log);
+          }
+
+          #[test]
+          fn [<test_ $method _vec_unify>]() {
+            let log = $crate::Builder::new()
+              .with_capacity($crate::tests::MB)
+              .with_unify(true)
+              .alloc::<$ty>(0)
+              .unwrap();
+            $crate::tests::$method(log);
+          }
+
+          #[test]
+          fn [<test_ $method _map_anon>]() {
+            let log = $crate::Builder::new()
+              .with_capacity($crate::tests::MB)
+              .with_lock_meta(true)
+              .map_anon::<$ty>(0)
+              .unwrap();
+            $crate::tests::$method(log);
+          }
+
+          #[test]
+          fn [<test_ $method _map_anon_unify>]() {
+            let log = $crate::Builder::new()
+              .with_capacity($crate::tests::MB)
+              .with_unify(true)
+              .with_lock_meta(true)
+              .map_anon::<$ty>(0)
+              .unwrap();
+            $crate::tests::$method(log);
+          }
+
+          #[test]
+          #[cfg_attr(miri, ignore)]
+          fn [<test_ $method _map_mut>]() {
+            let dir = ::tempfile::tempdir().unwrap();
+            let p = dir
+              .path()
+              .join(::std::format!("test_{}_map_mut", stringify!($method)));
+
+            let log = unsafe {
+              $crate::Builder::new()
+                .with_capacity($crate::tests::MB)
+                .with_create_new(true)
+                .with_read(true)
+                .with_write(true)
+                .with_lock_meta(true)
+                .map_mut::<$ty, _>(&p, 0)
+                .unwrap()
+            };
+            $crate::tests::$method(log);
+          }
+        )*
+      }
+    }
+  };
+  ($mod:ident($ty:ty)::spawn {
+    $($method:ident),+ $(,)?
+  }) => {
+    paste::paste! {
+      #[cfg(test)]
+      mod [< concurrent_ $mod >] {
+        $(
+          #[test]
+          fn [<test_ $method _vec>]() {
+            let log = $crate::Builder::new()
+              .with_capacity($crate::tests::MB)
+              .alloc::<$ty>(0)
+              .unwrap();
+            $crate::tests::$method(log);
+          }
+
+          #[test]
+          fn [<test_ $method _vec_unify>]() {
+            let log = $crate::Builder::new()
+              .with_capacity($crate::tests::MB)
+              .with_unify(true)
+              .alloc::<$ty>(0)
+              .unwrap();
+            $crate::tests::$method(log);
+          }
+
+          #[test]
+          fn [<test_ $method _map_anon>]() {
+            let log = $crate::Builder::new()
+              .with_capacity($crate::tests::MB)
+              .map_anon::<$ty>(0)
+              .unwrap();
+            $crate::tests::$method(log);
+          }
+
+          #[test]
+          fn [<test_ $method _map_anon_unify>]() {
+            let log = $crate::Builder::new()
+              .with_capacity($crate::tests::MB)
+              .with_unify(true)
+              .map_anon::<$ty>(0)
+              .unwrap();
+            $crate::tests::$method(log);
+          }
+
+          #[test]
+          #[cfg_attr(miri, ignore)]
+          fn [<test_ $method _map_mut>]() {
+            let dir = ::tempfile::tempdir().unwrap();
+            let p = dir
+              .path()
+              .join(::std::format!("test_{}_map_mut", stringify!($method)));
+
+            let log = unsafe {
+              $crate::Builder::new()
+                .with_capacity($crate::tests::MB)
+                .with_create_new(true)
+                .with_read(true)
+                .with_write(true)
+                .map_mut::<$ty, _>(&p, 0)
+                .unwrap()
+            };
+            $crate::tests::$method(log);
+          }
+        )*
+      }
+    }
+  };
+}
+
+pub(crate) fn basic<L: LogWriter + LogReader>(l: L)
+where
+  L::Id: core::fmt::Debug + CheapClone,
+{
+  let data = (0..1000u32)
+    .map(|i| match i % 6 {
+      0 => l.insert(&i.to_be_bytes()).unwrap(),
+      1 => l.insert_generic::<u32>(&i).unwrap(),
+      2 => l
+        .insert_with(ValueBuilder::new(4, |buf: &mut VacantBuffer<'_>| {
+          buf.put_u32_be(i)
+        }))
+        .unwrap(),
+      3 => l.insert_tombstone(&i.to_be_bytes()).unwrap(),
+      4 => l.insert_generic_tombstone::<u32>(&i).unwrap(),
+      5 => l
+        .insert_tombstone_with(ValueBuilder::new(4, |buf: &mut VacantBuffer<'_>| {
+          buf.put_u32_be(i)
+        }))
+        .unwrap(),
+      _ => unreachable!(),
+    })
+    .collect::<Vec<_>>();
+
+  for (i, vp) in data.iter().enumerate() {
+    let bytes = l.read(vp.offset(), vp.size()).unwrap();
+    assert_eq!(bytes, (i as u32).to_be_bytes());
+  }
+}
+
+#[cfg(feature = "std")]
+pub(crate) fn concurrent_basic<L>(l: L)
+where
+  L: Clone + LogWriter + LogReader + Send + 'static,
+  L::Id: core::fmt::Debug + CheapClone + Send,
+{
+  use std::sync::{Arc, Mutex};
+
+  #[cfg(not(miri))]
+  const N: u32 = 1000;
+
+  #[cfg(miri)]
+  const N: u32 = 200;
+
+  let (tx, rx) = crossbeam_channel::bounded(N as usize);
+  let data = Arc::new(Mutex::new(Vec::new()));
+
+  // concurrent write
+  (0..N).for_each(|i| {
+    let l = l.clone();
+    let tx = tx.clone();
+
+    std::thread::spawn(move || {
+      let val = i.to_string();
+      let vp = match i % 6 {
+        0 => l.insert(val.as_bytes()).unwrap(),
+        1 => l.insert_generic::<String>(&val).unwrap(),
+        2 => l
+          .insert_with(ValueBuilder::new(4, |buf: &mut VacantBuffer<'_>| {
+            buf.put_slice(val.as_bytes())
+          }))
+          .unwrap(),
+        3 => l.insert_tombstone(val.as_bytes()).unwrap(),
+        4 => l.insert_generic_tombstone::<String>(&val).unwrap(),
+        5 => l
+          .insert_tombstone_with(ValueBuilder::new(4, |buf: &mut VacantBuffer<'_>| {
+            buf.put_slice(val.as_bytes())
+          }))
+          .unwrap(),
+        _ => unreachable!(),
+      };
+
+      tx.send(vp).unwrap();
+    });
+  });
+
+  // concurrent read
+  (0..N).for_each(|i| {
+    let l = l.clone();
+    let rx = rx.clone();
+    let data = data.clone();
+
+    std::thread::spawn(move || {
+      for vp in rx {
+        let val = if i % 2 == 0 {
+          let bytes = l.read(vp.offset(), vp.size()).unwrap();
+          let val: u32 = std::str::from_utf8(bytes).unwrap().parse().unwrap();
+          val
+        } else {
+          let bytes = unsafe { l.read_generic::<String>(vp.offset(), vp.size()).unwrap() };
+          let val: u32 = bytes.parse().unwrap();
+          val
+        };
+
+        data.lock().unwrap().push(val);
+      }
+    });
+  });
+
+  drop(tx);
+
+  while data.lock().unwrap().len() < N as usize {
+    std::thread::yield_now();
+  }
+
+  let mut data = data.lock().unwrap();
+  data.sort_unstable();
+  assert_eq!(data.as_slice(), &(0..N).collect::<Vec<_>>());
 }

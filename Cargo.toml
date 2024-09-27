@@ -32,7 +32,9 @@ viewit = "0.1.5"
 
 [dev-dependencies]
 criterion = "0.5"
+crossbeam-channel = "0.5"
 tempfile = "3"
+paste = "1"
 
 [profile.bench]
 opt-level = 3

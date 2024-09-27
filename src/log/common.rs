@@ -57,11 +57,38 @@ pub trait Log: sealed::Sealed {
   fn options(&self) -> &Options;
 
   /// Returns the magic version of the log.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync::ValueLog, Builder, Log};
+  ///
+  /// let log = Builder::new()
+  ///   .with_capacity(100)
+  ///   .with_magic_version(1)
+  ///   .alloc::<ValueLog>(1)
+  ///   .unwrap();
+  ///
+  /// assert_eq!(log.magic_version(), 1);
+  /// ```
   fn magic_version(&self) -> u16 {
     self.options().magic_version()
   }
 
   /// Returns the version of the log.
+  ///
+  /// ## Example
+  ///
+  /// ```rust
+  /// use valog::{sync::ValueLog, Builder, Log};
+  ///
+  /// let log = Builder::new()
+  ///   .with_capacity(100)
+  ///   .alloc::<ValueLog>(1)
+  ///   .unwrap();
+  ///
+  /// assert_eq!(log.version(), 1);
+  /// ```
   #[inline]
   fn version(&self) -> u16 {
     self.allocator().magic_version()
