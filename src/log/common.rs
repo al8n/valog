@@ -216,7 +216,7 @@ pub trait Log: sealed::Sealed {
   ///     .map_mut::<ValueLog, _>(&path, 0)
   ///     .unwrap()
   /// };
-  /// assert!(log.in_ondisk());
+  /// assert!(log.on_disk());
   /// # }
   /// ```
   #[inline]
