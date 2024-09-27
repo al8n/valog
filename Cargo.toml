@@ -1,29 +1,48 @@
 [package]
-name = "template-rs"
-version = "0.0.0"
+name = "valog"
+version = "0.1.0"
 edition = "2021"
-repository = "https://github.com/al8n/template-rs"
-homepage = "https://github.com/al8n/template-rs"
-documentation = "https://docs.rs/template-rs"
-description = "A template for creating Rust open-source repo on GitHub"
+repository = "https://github.com/al8n/valog"
+homepage = "https://github.com/al8n/valog"
+documentation = "https://docs.rs/valog"
+description = "A lock-free, generic, lightweight value log."
 license = "MIT OR Apache-2.0"
-rust-version = "1.73"
+rust-version = "1.81.0"
+categories = ["data-structures", "database-implementations", "development-tools"]
+keywords = ["value-log", "wisckey", "bitcask", "database", "valuelog"]
 
 [[bench]]
 path = "benches/foo.rs"
 name = "foo"
 harness = false
 
+[[example]]
+path = "examples/concurrent_rw.rs"
+name = "concurrent_rw"
+required-features = ["memmap"]
+
 [features]
-default = ["std"]
-alloc = []
-std = []
+default = ["memmap", "rarena-allocator/default", "dbutils/default"]
+alloc = ["rarena-allocator/alloc", "dbutils/alloc"]
+std = ["rarena-allocator/std", "dbutils/std"]
+memmap = ["std", "rarena-allocator/memmap"]
+
+xxhash64 = ["dbutils/xxhash64"]
+xxhash3 = ["dbutils/xxhash3"]
+
+tracing = ["dbutils/tracing"]
 
 [dependencies]
+dbutils = { version = "0.4", default-features = false, features = ["crc32fast"] }
+rarena-allocator = { version = "0.4", default-features = false }
+viewit = "0.1.5"
 
 [dev-dependencies]
 criterion = "0.5"
+crossbeam-channel = "0.5"
 tempfile = "3"
+paste = "1"
+wg = { version = "0.9", default-features = false, features = ["std"] }
 
 [profile.bench]
 opt-level = 3
@@ -42,6 +61,4 @@ rustdoc-args = ["--cfg", "docsrs"]
 [lints.rust]
 rust_2018_idioms = "warn"
 single_use_lifetimes = "warn"
-unexpected_cfgs = { level = "warn", check-cfg = [
-  'cfg(all_tests)',
-] }
+
