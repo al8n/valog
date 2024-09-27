@@ -1,6 +1,6 @@
 [package]
 name = "valog"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
 repository = "https://github.com/al8n/valog"
 homepage = "https://github.com/al8n/valog"
@@ -9,7 +9,7 @@ description = "A lock-free, generic, lightweight value log."
 license = "MIT OR Apache-2.0"
 rust-version = "1.81.0"
 categories = ["data-structures", "database-implementations", "development-tools"]
-keywords = ["value-log", "wisckey", "vlog", "database"]
+keywords = ["value-log", "wisckey", "bitcask", "database", "valuelog"]
 
 [[bench]]
 path = "benches/foo.rs"
@@ -29,8 +29,6 @@ xxhash3 = ["dbutils/xxhash3"]
 dbutils = { version = "0.4", default-features = false, features = ["crc32fast"] }
 rarena-allocator = { version = "0.4", default-features = false }
 viewit = "0.1.5"
-
-tracing = { version = "0.1", optional = true }
 
 [dev-dependencies]
 criterion = "0.5"
@@ -56,6 +54,4 @@ rustdoc-args = ["--cfg", "docsrs"]
 [lints.rust]
 rust_2018_idioms = "warn"
 single_use_lifetimes = "warn"
-unexpected_cfgs = { level = "warn", check-cfg = [
-  'cfg(all_tests)',
-] }
+
