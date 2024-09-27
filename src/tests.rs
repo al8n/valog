@@ -96,6 +96,7 @@ fn test_basic() {
 
 #[test]
 #[cfg_attr(miri, ignore)]
+#[cfg(all(feature = "memmap", not(target_family = "wasm")))]
 fn test_reopen_and_concurrent_read() {
   use crate::sync::{ImmutableValueLog, ValueLog};
 
@@ -149,6 +150,7 @@ fn test_reopen_and_concurrent_read() {
 
 #[test]
 #[cfg_attr(miri, ignore)]
+#[cfg(all(feature = "memmap", not(target_family = "wasm")))]
 fn test_reopen_and_read() {
   use crate::unsync::{ImmutableValueLog, ValueLog};
 
