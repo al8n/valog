@@ -352,7 +352,7 @@ where
   L::Id: core::fmt::Debug + CheapClone,
 {
   #[cfg(not(miri))]
-  const N: u32 = 500;
+  const N: u32 = 1000;
   #[cfg(miri)]
   const N: u32 = 200;
 
@@ -398,7 +398,7 @@ where
   use wg::WaitGroup;
 
   #[cfg(not(miri))]
-  const N: u32 = 1000;
+  const N: u32 = 500;
 
   #[cfg(miri)]
   const N: u32 = 100;
