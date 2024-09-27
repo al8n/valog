@@ -104,7 +104,7 @@ fn test_reopen_and_concurrent_read() {
 
   let log = unsafe {
     Builder::new()
-      .with_capacity(100)
+      .with_capacity(MB)
       .with_create_new(true)
       .with_read(true)
       .with_write(true)
@@ -120,7 +120,6 @@ fn test_reopen_and_concurrent_read() {
 
   let log = unsafe {
     Builder::new()
-      .with_capacity(100)
       .with_read(true)
       .map::<ImmutableValueLog, _>(&p, 0)
       .unwrap()
@@ -158,7 +157,7 @@ fn test_reopen_and_read() {
 
   let log = unsafe {
     Builder::new()
-      .with_capacity(100)
+      .with_capacity(MB)
       .with_create_new(true)
       .with_read(true)
       .with_write(true)
@@ -174,7 +173,6 @@ fn test_reopen_and_read() {
 
   let log = unsafe {
     Builder::new()
-      .with_capacity(100)
       .with_read(true)
       .map::<ImmutableValueLog, _>(&p, 0)
       .unwrap()
@@ -225,6 +223,7 @@ macro_rules! __common_tests {
           }
 
           #[test]
+          #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
           fn [<test_ $method _map_anon>]() {
             let log = $crate::Builder::new()
               .with_capacity($crate::tests::MB)
@@ -235,6 +234,7 @@ macro_rules! __common_tests {
           }
 
           #[test]
+          #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
           fn [<test_ $method _map_anon_unify>]() {
             let log = $crate::Builder::new()
               .with_capacity($crate::tests::MB)
@@ -247,6 +247,7 @@ macro_rules! __common_tests {
 
           #[test]
           #[cfg_attr(miri, ignore)]
+          #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
           fn [<test_ $method _map_mut>]() {
             let dir = ::tempfile::tempdir().unwrap();
             let p = dir
@@ -296,6 +297,7 @@ macro_rules! __common_tests {
           }
 
           #[test]
+          #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
           fn [<test_ $method _map_anon>]() {
             let log = $crate::Builder::new()
               .with_capacity($crate::tests::MB)
@@ -305,6 +307,7 @@ macro_rules! __common_tests {
           }
 
           #[test]
+          #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
           fn [<test_ $method _map_anon_unify>]() {
             let log = $crate::Builder::new()
               .with_capacity($crate::tests::MB)
@@ -316,6 +319,7 @@ macro_rules! __common_tests {
 
           #[test]
           #[cfg_attr(miri, ignore)]
+          #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
           fn [<test_ $method _map_mut>]() {
             let dir = ::tempfile::tempdir().unwrap();
             let p = dir
@@ -343,7 +347,12 @@ pub(crate) fn basic<L: LogWriter + LogReader>(l: L)
 where
   L::Id: core::fmt::Debug + CheapClone,
 {
-  let data = (0..1000u32)
+  #[cfg(not(miri))]
+  const N: u32 = 1000;
+  #[cfg(miri)]
+  const N: u32 = 200;
+
+  let data = (0..N)
     .map(|i| match i % 6 {
       0 => l.insert(&i.to_be_bytes()).unwrap(),
       1 => l.insert_generic::<u32>(&i).unwrap(),
@@ -381,7 +390,7 @@ where
   const N: u32 = 1000;
 
   #[cfg(miri)]
-  const N: u32 = 200;
+  const N: u32 = 100;
 
   let (tx, rx) = crossbeam_channel::bounded(N as usize);
   let data = Arc::new(Mutex::new(Vec::new()));
