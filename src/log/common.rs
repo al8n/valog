@@ -167,9 +167,10 @@ pub trait Log: sealed::Sealed {
   ///
   /// assert!(log.in_memory());
   ///
+  /// # #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
+  /// # {
   /// let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
   /// # std::fs::remove_file(&path);
-  ///
   /// let log = unsafe {
   ///   Builder::new()
   ///     .with_capacity(100)
@@ -179,8 +180,9 @@ pub trait Log: sealed::Sealed {
   ///     .map_mut::<ValueLog, _>(&path, 0)
   ///     .unwrap()
   /// };
-  ///
   /// assert!(!log.in_memory());
+  /// # }
+  ///
   /// ```
   #[inline]
   fn in_memory(&self) -> bool {
@@ -201,9 +203,10 @@ pub trait Log: sealed::Sealed {
   ///
   /// assert!(!log.on_disk());
   ///
+  /// # #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
+  /// # {
   /// let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
   /// # std::fs::remove_file(&path);
-  ///
   /// let log = unsafe {
   ///   Builder::new()
   ///     .with_capacity(100)
@@ -213,8 +216,8 @@ pub trait Log: sealed::Sealed {
   ///     .map_mut::<ValueLog, _>(&path, 0)
   ///     .unwrap()
   /// };
-  ///
-  /// assert!(log.on_disk());
+  /// assert!(log.in_ondisk());
+  /// # }
   /// ```
   #[inline]
   fn on_disk(&self) -> bool {
@@ -242,9 +245,10 @@ pub trait Log: sealed::Sealed {
   ///
   /// assert!(log.is_map());
   ///
+  /// # #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
+  /// # {
   /// let path = tempfile::NamedTempFile::new().unwrap().into_temp_path();
   /// # std::fs::remove_file(&path);
-  ///
   /// let log = unsafe {
   ///   Builder::new()
   ///     .with_capacity(100)
@@ -254,8 +258,8 @@ pub trait Log: sealed::Sealed {
   ///     .map_mut::<ValueLog, _>(&path, 0)
   ///     .unwrap()
   /// };
-  ///
-  /// assert!(log.is_map());
+  /// assert!(log.in_map());
+  /// # }
   /// ```
   #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
   #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
