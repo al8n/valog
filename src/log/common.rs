@@ -665,7 +665,7 @@ pub trait MutableLog: Log + Mutable {
   #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
   #[inline]
   fn flush_range(&self, offset: usize, len: usize) -> std::io::Result<()> {
-    self.allocator().flush_range(offset, len)
+    self.allocator().flush_header_and_range(offset, len)
   }
 
   /// Asynchronously flushes outstanding memory map modifications in the range to disk.
@@ -693,7 +693,7 @@ pub trait MutableLog: Log + Mutable {
   #[cfg_attr(docsrs, doc(cfg(all(feature = "memmap", not(target_family = "wasm")))))]
   #[inline]
   fn flush_async_range(&self, offset: usize, len: usize) -> std::io::Result<()> {
-    self.allocator().flush_async_range(offset, len)
+    self.allocator().flush_async_header_and_range(offset, len)
   }
 }
 

@@ -20,6 +20,4 @@ rustup override set nightly
 cargo miri setup
 
 export MIRIFLAGS="-Zmiri-strict-provenance -Zmiri-disable-isolation -Zmiri-symbolic-alignment-check"
-export RUSTFLAGS="--cfg test_$CONFIG_FLAGS"
-
 cargo miri test --tests --target $TARGET --lib

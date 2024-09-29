@@ -1,27 +1,10 @@
 use rarena_allocator::{either::Either, Allocator};
 
 use super::{
-  write_header, Builder, Options, CURRENT_VERSION, HEADER_SIZE, MAGIC_TEXT, MAGIC_TEXT_SIZE,
+  super::error::{bad_magic_text, bad_magic_version, Error},
+  write_header, Builder, Options, HEADER_SIZE, MAGIC_TEXT, MAGIC_TEXT_SIZE,
 };
 use crate::{sealed::Constructor, Frozen, Mutable};
-
-#[cfg(all(feature = "memmap", not(target_family = "wasm")))]
-#[inline]
-fn bad_magic_text() -> std::io::Error {
-  std::io::Error::new(std::io::ErrorKind::InvalidData, "bad magic text")
-}
-
-#[cfg(all(feature = "memmap", not(target_family = "wasm")))]
-#[inline]
-fn bad_magic_version() -> std::io::Error {
-  std::io::Error::new(std::io::ErrorKind::InvalidData, "bad magic version")
-}
-
-#[cfg(all(feature = "memmap", not(target_family = "wasm")))]
-#[inline]
-fn bad_version() -> std::io::Error {
-  std::io::Error::new(std::io::ErrorKind::InvalidData, "bad version")
-}
 
 impl Options {
   /// Sets the option for read access.
@@ -623,15 +606,11 @@ impl<S> Builder<S> {
       .to_arena_options()
       .with_unify(true)
       .map_with_path_builder::<C::Allocator, _, _>(path_builder)
+      .map_err(|e| e.map_right(Error::from_arena_io_err))
       .and_then(|arena| {
-        Self::check_header(arena.reserved_slice(), magic_version).map_err(Either::Right)?;
-        let version = arena.magic_version();
-        if version != CURRENT_VERSION {
-          Err(Either::Right(bad_version()))
-        } else {
-          let log = C::construct(fid, arena, cks, opts.with_magic_version(magic_version));
-          Ok(log)
-        }
+        Self::check_header(arena.reserved_slice(), magic_version)
+          .map(|_| C::construct(fid, arena, cks, opts.with_magic_version(magic_version)))
+          .map_err(Either::Right)
       })
   }
 
@@ -728,7 +707,7 @@ impl<S> Builder<S> {
       .to_arena_options()
       .with_unify(true)
       .map_mut::<C::Allocator, _>(path)
-      .map_err(Either::Right)
+      .map_err(|e| Either::Right(crate::error::Error::from_arena_io_err(e)))
       .and_then(|arena| {
         if !exist {
           write_header(arena.reserved_slice_mut(), magic_version);
@@ -736,13 +715,8 @@ impl<S> Builder<S> {
           Self::check_header(arena.reserved_slice(), magic_version).map_err(Either::Right)?;
         }
 
-        let version = arena.magic_version();
-        if version != CURRENT_VERSION {
-          Err(Either::Right(bad_version()))
-        } else {
-          let log = C::construct(fid, arena, cks, opts);
-          Ok(log)
-        }
+        let log = C::construct(fid, arena, cks, opts);
+        Ok(log)
       })
   }
 

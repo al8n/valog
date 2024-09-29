@@ -117,4 +117,32 @@ impl Error {
       _ => unreachable!(),
     }
   }
+
+  #[cfg(all(feature = "memmap", not(target_family = "wasm")))]
+  #[inline]
+  pub(crate) fn from_arena_io_err(e: std::io::Error) -> std::io::Error {
+    if e.to_string().starts_with("ARENA's magic version mismatch") {
+      bad_version()
+    } else {
+      e
+    }
+  }
+}
+
+#[cfg(all(feature = "memmap", not(target_family = "wasm")))]
+#[inline]
+pub(crate) fn bad_magic_text() -> std::io::Error {
+  std::io::Error::new(std::io::ErrorKind::InvalidData, "bad magic text")
+}
+
+#[cfg(all(feature = "memmap", not(target_family = "wasm")))]
+#[inline]
+pub(crate) fn bad_magic_version() -> std::io::Error {
+  std::io::Error::new(std::io::ErrorKind::InvalidData, "bad magic version")
+}
+
+#[cfg(all(feature = "memmap", not(target_family = "wasm")))]
+#[inline]
+fn bad_version() -> std::io::Error {
+  std::io::Error::new(std::io::ErrorKind::InvalidData, "bad version")
 }
