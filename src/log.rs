@@ -35,6 +35,7 @@ pub struct ValuePointer<I> {
   id: I,
   offset: u32,
   size: u32,
+  tombstone: bool,
 }
 
 impl<I: CheapClone> CheapClone for ValuePointer<I> {}
@@ -43,7 +44,12 @@ impl<I> ValuePointer<I> {
   /// Creates a new value pointer.
   #[inline]
   pub const fn new(id: I, offset: u32, size: u32) -> Self {
-    Self { id, offset, size }
+    Self {
+      id,
+      offset,
+      size,
+      tombstone: false,
+    }
   }
 
   /// Returns the log id of this value pointer.
@@ -62,6 +68,21 @@ impl<I> ValuePointer<I> {
   #[inline]
   pub const fn size(&self) -> u32 {
     self.size
+  }
+
+  /// Returns `true` if the value pointer points to a tombstone.
+  #[inline]
+  pub const fn is_tombstone(&self) -> bool {
+    self.tombstone
+  }
+
+  /// Sets the tombstone mark of the value pointer.
+  #[inline]
+  fn with_tombstone(self) -> Self {
+    Self {
+      tombstone: true,
+      ..self
+    }
   }
 }
 

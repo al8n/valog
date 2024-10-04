@@ -506,6 +506,12 @@ where
     .collect::<Vec<_>>();
 
   for (i, vp) in data.iter().enumerate() {
+    let remaining = i % 6;
+
+    if remaining >= 3 {
+      assert!(vp.is_tombstone());
+    }
+
     let bytes = l.read(vp.offset(), vp.size()).unwrap();
     let val: u32 = std::str::from_utf8(bytes).unwrap().parse().unwrap();
     assert_eq!(i, val as usize);

@@ -45,9 +45,10 @@ pub trait LogWriter: Log {
   where
     Self::Id: CheapClone + core::fmt::Debug,
   {
-    self
-      .insert(value)
-      .inspect(|_| self.allocator().increase_discarded(value.len() as u32))
+    self.insert(value).map(|vp| {
+      self.allocator().increase_discarded(value.len() as u32);
+      vp.with_tombstone()
+    })
   }
 }
 
@@ -164,7 +165,10 @@ pub trait LogWriterExt: LogWriter {
     Self::Id: CheapClone + core::fmt::Debug,
   {
     let encoded_len = vb.size;
-    insert_in(self, vb).inspect(|_| self.allocator().increase_discarded(encoded_len))
+    insert_in(self, vb).map(|vp| {
+      self.allocator().increase_discarded(encoded_len);
+      vp.with_tombstone()
+    })
   }
 }
 
