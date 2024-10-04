@@ -10,12 +10,12 @@ pub trait LogReader: Log {
   /// ## Example
   ///
   /// ```rust
-  /// use valog::{Builder, sync::ValueLog, LogWriter, LogReader};
+  /// use valog::{Builder, sync::ValueLog, LogWriter, LogReader, Log};
   ///
   /// let log = Builder::new().with_capacity(1024).alloc::<ValueLog>(0).unwrap();
   ///
   /// let vp = log.insert(b"Hello, valog!").unwrap();
-  /// let data = log.read(vp.offset(), vp.size()).unwrap();
+  /// let data = unsafe { log.read(log.id(), vp.offset(), vp.size()).unwrap() };
   /// assert_eq!(data, b"Hello, valog!");
   /// ```
   unsafe fn read(&self, id: &Self::Id, offset: u32, len: u32) -> Result<&[u8], Error>
@@ -83,13 +83,13 @@ pub trait LogReaderExt: LogReader {
   /// ## Example
   ///
   /// ```rust
-  /// use valog::{Builder, sync::ValueLog, LogWriterExt, LogReaderExt};
+  /// use valog::{Builder, sync::ValueLog, LogWriterExt, LogReaderExt, Log};
   ///
   /// let log = Builder::new().with_capacity(1024).alloc::<ValueLog>(0).unwrap();
   ///
   /// let vp = log.insert_generic(&"Hello, valog!".to_string()).unwrap();
   ///
-  /// let data = unsafe { log.read_generic::<String>(vp.offset(), vp.size()).unwrap() };
+  /// let data = unsafe { log.read_generic::<String>(log.id(), vp.offset(), vp.size()).unwrap() };
   ///
   /// assert_eq!(data, "Hello, valog!");
   /// ```
@@ -123,13 +123,13 @@ pub trait GenericLogReader: Log {
   /// ## Example
   ///
   /// ```rust
-  /// use valog::{Builder, sync::GenericValueLog, GenericLogWriter, GenericLogReader};
+  /// use valog::{Builder, sync::GenericValueLog, GenericLogWriter, GenericLogReader, Log};
   ///
   /// let log = Builder::new().with_capacity(1024).alloc::<GenericValueLog<String>>(0).unwrap();
   ///
   /// let vp = log.insert(&"Hello, valog!".to_string()).unwrap();
   ///
-  /// let data = unsafe { log.read(vp.offset(), vp.size()).unwrap() };
+  /// let data = unsafe { log.read(log.id(), vp.offset(), vp.size()).unwrap() };
   ///
   /// assert_eq!(data, "Hello, valog!");
   /// ```
