@@ -14,10 +14,10 @@ fn test_read_out_of_bounds() {
     .alloc::<crate::sync::ValueLog>(0)
     .unwrap();
 
-  let err = log.read(0, 10).unwrap_err();
+  let err = unsafe { log.read(log.id(), 0, 10).unwrap_err() };
   assert!(matches!(err, Error::OutOfBounds { .. }));
 
-  let err = log.read(10, 10).unwrap_err();
+  let err = unsafe { log.read(log.id(), 10, 10).unwrap_err() };
   assert!(matches!(err, Error::OutOfBounds { .. }));
 }
 
@@ -37,7 +37,7 @@ fn test_checksum_mismatch() {
       .add(vp.offset() as usize)
       .write(0);
   }
-  let err = log.read(vp.offset(), vp.size()).unwrap_err();
+  let err = unsafe { log.read(log.id(), vp.offset(), vp.size()).unwrap_err() };
   assert!(matches!(err, Error::ChecksumMismatch));
 
   let log = Builder::new()
@@ -54,7 +54,7 @@ fn test_checksum_mismatch() {
       .add(vp.offset() as usize)
       .write(0);
   }
-  let err = unsafe { log.read(vp.offset(), vp.size()).unwrap_err() };
+  let err = unsafe { log.read(log.id(), vp.offset(), vp.size()).unwrap_err() };
   assert!(matches!(err, Error::ChecksumMismatch));
 }
 
@@ -103,7 +103,7 @@ fn test_basic() {
   assert_eq!(*log.id(), 0);
   assert_eq!(log.options().capacity(), 100);
 
-  let empty = log.read(0, 0).unwrap();
+  let empty = unsafe { log.read(log.id(), 0, 0).unwrap() };
   assert_eq!(empty, &[]);
 
   let log = Builder::new()
@@ -156,7 +156,7 @@ fn test_reopen_and_concurrent_read() {
     let tx = tx.clone();
 
     std::thread::spawn(move || {
-      let bytes = l.read(vp.offset(), vp.size()).unwrap();
+      let bytes = unsafe { l.read(l.id(), vp.offset(), vp.size()).unwrap() };
       let val: u32 = std::str::from_utf8(bytes).unwrap().parse().unwrap();
       tx.send(val).unwrap();
     });
@@ -212,7 +212,7 @@ fn test_generic_reopen_and_concurrent_read() {
     let tx = tx.clone();
 
     std::thread::spawn(move || {
-      let val = unsafe { l.read(vp.offset(), vp.size()).unwrap() };
+      let val = unsafe { l.read(l.id(), vp.offset(), vp.size()).unwrap() };
       let val: u32 = val.parse().unwrap();
       tx.send(val).unwrap();
     });
@@ -264,7 +264,7 @@ fn test_reopen_and_read() {
     .map(|vp| {
       let l = log.clone();
 
-      let bytes = l.read(vp.offset(), vp.size()).unwrap();
+      let bytes = unsafe { l.read(l.id(), vp.offset(), vp.size()).unwrap() };
       let val: u32 = std::str::from_utf8(bytes).unwrap().parse().unwrap();
       val
     })
@@ -311,7 +311,7 @@ fn test_generic_reopen_and_read() {
     .map(|vp| {
       let l = log.clone();
 
-      let val = unsafe { l.read(vp.offset(), vp.size()).unwrap() };
+      let val = unsafe { l.read(l.id(), vp.offset(), vp.size()).unwrap() };
       let val: u32 = val.parse().unwrap();
       val
     })
@@ -473,7 +473,7 @@ macro_rules! __common_tests {
 
 pub(crate) fn basic<L: LogWriter + LogReader>(l: L)
 where
-  L::Id: core::fmt::Debug + CheapClone,
+  L::Id: core::fmt::Debug + CheapClone + Eq,
 {
   #[cfg(not(miri))]
   const N: u32 = 1000;
@@ -512,7 +512,7 @@ where
       assert!(vp.is_tombstone());
     }
 
-    let bytes = l.read(vp.offset(), vp.size()).unwrap();
+    let bytes = unsafe { l.read(l.id(), vp.offset(), vp.size()).unwrap() };
     let val: u32 = std::str::from_utf8(bytes).unwrap().parse().unwrap();
     assert_eq!(i, val as usize);
   }
@@ -522,7 +522,7 @@ where
 pub(crate) fn concurrent_basic<L>(l: L)
 where
   L: Clone + LogWriter + LogReader + Send + 'static,
-  L::Id: core::fmt::Debug + CheapClone + Send,
+  L::Id: core::fmt::Debug + CheapClone + Send + Eq,
 {
   use std::sync::{Arc, Mutex};
   use wg::WaitGroup;
@@ -579,11 +579,14 @@ where
     std::thread::spawn(move || {
       for vp in rx {
         let val = if i % 2 == 0 {
-          let bytes = l.read(vp.offset(), vp.size()).unwrap();
+          let bytes = unsafe { l.read(l.id(), vp.offset(), vp.size()).unwrap() };
           let val: u32 = std::str::from_utf8(bytes).unwrap().parse().unwrap();
           val
         } else {
-          let bytes = unsafe { l.read_generic::<String>(vp.offset(), vp.size()).unwrap() };
+          let bytes = unsafe {
+            l.read_generic::<String>(l.id(), vp.offset(), vp.size())
+              .unwrap()
+          };
           let val: u32 = bytes.parse().unwrap();
           val
         };
@@ -607,7 +610,7 @@ where
 pub(crate) fn generic_concurrent_basic<L>(l: L)
 where
   L: Clone + GenericLogWriter<Type = String> + GenericLogReader<Type = String> + Send + 'static,
-  L::Id: core::fmt::Debug + CheapClone + Send,
+  L::Id: core::fmt::Debug + CheapClone + Send + Eq,
 {
   use std::sync::{Arc, Mutex};
   use wg::WaitGroup;
@@ -649,7 +652,7 @@ where
     let wg = wg.add(1);
     std::thread::spawn(move || {
       for vp in rx {
-        let bytes = unsafe { l.read(vp.offset(), vp.size()).unwrap() };
+        let bytes = unsafe { l.read(l.id(), vp.offset(), vp.size()).unwrap() };
         let val: u32 = bytes.parse().unwrap();
 
         data.lock().unwrap().push(val);

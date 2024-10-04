@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 use valog::{
-  sync::ValueLog, Builder, LogReader, LogReaderExt, LogWriter, LogWriterExt, VacantBuffer,
+  sync::ValueLog, Builder, Log, LogReader, LogReaderExt, LogWriter, LogWriterExt, VacantBuffer,
   ValueBuilder,
 };
 use wg::WaitGroup;
@@ -67,11 +67,14 @@ fn main() {
     std::thread::spawn(move || {
       for vp in rx {
         let val = if i % 2 == 0 {
-          let bytes = l.read(vp.offset(), vp.size()).unwrap();
+          let bytes = unsafe { l.read(l.id(), vp.offset(), vp.size()).unwrap() };
           let val: u32 = std::str::from_utf8(bytes).unwrap().parse().unwrap();
           val
         } else {
-          let bytes = unsafe { l.read_generic::<String>(vp.offset(), vp.size()).unwrap() };
+          let bytes = unsafe {
+            l.read_generic::<String>(l.id(), vp.offset(), vp.size())
+              .unwrap()
+          };
           let val: u32 = bytes.parse().unwrap();
           val
         };

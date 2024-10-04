@@ -29,6 +29,9 @@ pub enum Error {
     end_offset: u32,
   },
 
+  /// Returned when the file id is not matched when reading.
+  IdMismatch,
+
   /// Returned when checksum verification fails.
   ChecksumMismatch,
 
@@ -69,6 +72,9 @@ impl core::fmt::Display for Error {
         "out of bounds, offset: {}, len: {}, data offset: {}, end offset: {}",
         offset, len, data_offset, end_offset
       ),
+      Self::IdMismatch => {
+        write!(f, "file id mismatch")
+      }
       Self::ChecksumMismatch => f.write_str("checksum mismatch"),
       #[cfg(feature = "std")]
       Self::IO(err) => err.fmt(f),

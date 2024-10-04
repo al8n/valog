@@ -4,6 +4,9 @@ use super::*;
 pub trait LogReader: Log {
   /// Reads a value from the log.
   ///
+  /// ## Safety
+  /// - The buffer `offset..offset + len` must hold a valid bytes sequence.
+  ///
   /// ## Example
   ///
   /// ```rust
@@ -15,7 +18,14 @@ pub trait LogReader: Log {
   /// let data = log.read(vp.offset(), vp.size()).unwrap();
   /// assert_eq!(data, b"Hello, valog!");
   /// ```
-  fn read(&self, offset: u32, len: u32) -> Result<&[u8], Error> {
+  unsafe fn read(&self, id: &Self::Id, offset: u32, len: u32) -> Result<&[u8], Error>
+  where
+    Self::Id: Eq,
+  {
+    if self.id().ne(id) {
+      return Err(Error::IdMismatch);
+    }
+
     if len == 0 {
       return Ok(&[]);
     }
@@ -83,9 +93,17 @@ pub trait LogReaderExt: LogReader {
   ///
   /// assert_eq!(data, "Hello, valog!");
   /// ```
-  unsafe fn read_generic<T: Type>(&self, offset: u32, len: u32) -> Result<T::Ref<'_>, Error> {
+  unsafe fn read_generic<T: Type>(
+    &self,
+    id: &Self::Id,
+    offset: u32,
+    len: u32,
+  ) -> Result<T::Ref<'_>, Error>
+  where
+    Self::Id: Eq,
+  {
     self
-      .read(offset, len)
+      .read(id, offset, len)
       .map(|buf| <T::Ref<'_> as TypeRef>::from_slice(buf))
   }
 }
@@ -115,9 +133,15 @@ pub trait GenericLogReader: Log {
   ///
   /// assert_eq!(data, "Hello, valog!");
   /// ```
-  unsafe fn read(&self, offset: u32, len: u32) -> Result<<Self::Type as Type>::Ref<'_>, Error>
+  unsafe fn read(
+    &self,
+    id: &Self::Id,
+    offset: u32,
+    len: u32,
+  ) -> Result<<Self::Type as Type>::Ref<'_>, Error>
   where
-    Self::Type: Type;
+    Self::Type: Type,
+    Self::Id: Eq;
 }
 
 impl<L> GenericLogReader for L
@@ -127,10 +151,16 @@ where
 {
   type Type = L::Type;
 
-  unsafe fn read(&self, offset: u32, len: u32) -> Result<<Self::Type as Type>::Ref<'_>, Error>
+  unsafe fn read(
+    &self,
+    id: &<L::Log as Log>::Id,
+    offset: u32,
+    len: u32,
+  ) -> Result<<Self::Type as Type>::Ref<'_>, Error>
   where
     Self::Type: Type,
+    Self::Id: Eq,
   {
-    self.as_log().read_generic::<Self::Type>(offset, len)
+    self.as_log().read_generic::<Self::Type>(id, offset, len)
   }
 }
