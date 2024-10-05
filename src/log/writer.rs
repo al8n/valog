@@ -75,10 +75,7 @@ pub trait LogWriterExt: LogWriter {
     let encoded_len = value.encoded_len();
     self.insert_with(ValueBuilder::new(
       encoded_len as u32,
-      |buf: &mut VacantBuffer<'_>| {
-        buf.set_len(encoded_len);
-        value.encode(buf).map(|_| ())
-      },
+      |buf: &mut VacantBuffer<'_>| value.encode_to_buffer(buf).map(|_| ()),
     ))
   }
 
@@ -132,10 +129,7 @@ pub trait LogWriterExt: LogWriter {
     let encoded_len = value.encoded_len();
     self.insert_tombstone_with(ValueBuilder::new(
       encoded_len as u32,
-      |buf: &mut VacantBuffer<'_>| {
-        buf.set_len(encoded_len);
-        value.encode(buf).map(|_| ())
-      },
+      |buf: &mut VacantBuffer<'_>| value.encode_to_buffer(buf).map(|_| ()),
     ))
   }
 
