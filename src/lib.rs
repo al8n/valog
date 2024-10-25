@@ -35,5 +35,5 @@ pub mod error;
 
 dbutils::builder!(
   /// The value builder for building a value in place when inserting into the value log.
-  pub ValueBuilder(u32)
+  pub ValueBuilder;
 );

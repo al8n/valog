@@ -42,14 +42,14 @@ This crate offers a robust solution for managing value storage in WiscKey-based 
   
   ```toml
   [dependencies]
-  valog = "0.1"
+  valog = "0.2"
   ```
 
 - `no_std` full in-memory mode
 
   ```toml
   [dependencies]
-  valog = { version = "0.1", default-features = false, features = ["alloc"] }
+  valog = { version = "0.2", default-features = false, features = ["alloc"] }
   ```
 
 #### License

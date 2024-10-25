@@ -20,7 +20,7 @@ pub trait LogWriter: Log {
   where
     Self::Id: CheapClone + core::fmt::Debug,
   {
-    let vb = ValueBuilder::new(value.len() as u32, |buf: &mut VacantBuffer<'_>| {
+    let vb = ValueBuilder::new(value.len(), |buf: &mut VacantBuffer<'_>| {
       buf.put_slice_unchecked(value);
       Ok(())
     });
@@ -74,7 +74,7 @@ pub trait LogWriterExt: LogWriter {
   {
     let encoded_len = value.encoded_len();
     self.insert_with(ValueBuilder::new(
-      encoded_len as u32,
+      encoded_len,
       |buf: &mut VacantBuffer<'_>| value.encode_to_buffer(buf).map(|_| ()),
     ))
   }
@@ -88,7 +88,7 @@ pub trait LogWriterExt: LogWriter {
   ///
   /// let log = Builder::new().with_capacity(1024).alloc::<ValueLog>(0).unwrap();
   /// let data = b"Hello, valog!";
-  /// let vb = ValueBuilder::new(data.len() as u32, |buf: &mut VacantBuffer<'_>| {
+  /// let vb = ValueBuilder::new(data.len(), |buf: &mut VacantBuffer<'_>| {
   ///   buf.put_slice(data)
   /// });
   /// let vp = log.insert_with(vb).unwrap();
@@ -128,7 +128,7 @@ pub trait LogWriterExt: LogWriter {
   {
     let encoded_len = value.encoded_len();
     self.insert_tombstone_with(ValueBuilder::new(
-      encoded_len as u32,
+      encoded_len,
       |buf: &mut VacantBuffer<'_>| value.encode_to_buffer(buf).map(|_| ()),
     ))
   }
@@ -145,7 +145,7 @@ pub trait LogWriterExt: LogWriter {
   ///
   /// let log = Builder::new().with_capacity(1024).alloc::<ValueLog>(0).unwrap();
   /// let data = b"Hello, valog!";
-  /// let vb = ValueBuilder::new(data.len() as u32, |buf: &mut VacantBuffer<'_>| {
+  /// let vb = ValueBuilder::new(data.len(), |buf: &mut VacantBuffer<'_>| {
   ///   buf.put_slice(data)
   /// });
   /// let vp = log.insert_tombstone_with(vb).unwrap();
@@ -160,7 +160,7 @@ pub trait LogWriterExt: LogWriter {
   {
     let encoded_len = vb.size;
     insert_in(self, vb).map(|vp| {
-      self.allocator().increase_discarded(encoded_len);
+      self.allocator().increase_discarded(encoded_len as u32);
       vp.with_tombstone()
     })
   }
@@ -183,7 +183,7 @@ where
   let opts = l.options();
   let maximum = opts.max_value_size;
   let (value_len, builder) = vb.into_components();
-  let len = value_len as usize + CHECKSUM_LEN;
+  let len = value_len + CHECKSUM_LEN;
 
   if len > maximum as usize {
     return Err(Either::Right(Error::value_too_large(len, maximum as usize)));
@@ -195,12 +195,12 @@ where
     .map_err(|e| Either::Right(Error::from_insufficient_space(e)))?;
 
   let begin_offset = buf.offset();
-  buf.set_len(value_len as usize);
+  buf.set_len(value_len);
 
   // SAFETY: `buf` is allocated with the exact size of `value.len() + CHECKSUM_LEN`.
   unsafe {
     let ptr = NonNull::new_unchecked(buf.as_mut_ptr());
-    let mut vacant_buf = VacantBuffer::new(value_len as usize, ptr);
+    let mut vacant_buf = VacantBuffer::new(value_len, ptr);
     builder(&mut vacant_buf).map_err(Either::Left)?;
     let checksum = l.checksum(&buf);
     buf.put_u64_le_unchecked(checksum);
@@ -221,7 +221,7 @@ where
   Ok(ValuePointer::new(
     l.id().cheap_clone(),
     begin_offset as u32,
-    value_len,
+    value_len as u32,
   ))
 }
 

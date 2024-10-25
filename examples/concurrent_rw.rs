@@ -37,7 +37,7 @@ fn main() {
         1 => l.insert_generic::<String>(&val).unwrap(),
         2 => l
           .insert_with(ValueBuilder::new(
-            val.len() as u32,
+            val.len(),
             |buf: &mut VacantBuffer<'_>| buf.put_slice(val.as_bytes()),
           ))
           .unwrap(),
@@ -45,7 +45,7 @@ fn main() {
         4 => l.insert_generic_tombstone::<String>(&val).unwrap(),
         5 => l
           .insert_tombstone_with(ValueBuilder::new(
-            val.len() as u32,
+            val.len(),
             |buf: &mut VacantBuffer<'_>| buf.put_slice(val.as_bytes()),
           ))
           .unwrap(),
