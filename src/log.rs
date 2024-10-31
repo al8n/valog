@@ -3,7 +3,7 @@ use core::ptr::NonNull;
 use dbutils::{
   buffer::VacantBuffer,
   checksum::{BuildChecksumer, Crc32},
-  traits::{Type, TypeRef},
+  types::{Type, TypeRef},
   CheapClone,
 };
 use rarena_allocator::{either::Either, Allocator, Buffer};

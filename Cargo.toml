@@ -1,6 +1,6 @@
 [package]
 name = "valog"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 repository = "https://github.com/al8n/valog"
 homepage = "https://github.com/al8n/valog"
@@ -33,7 +33,7 @@ xxhash3 = ["dbutils/xxhash3"]
 tracing = ["dbutils/tracing"]
 
 [dependencies]
-dbutils = { version = "0.8", default-features = false, features = ["crc32fast"] }
+dbutils = { version = "0.9", default-features = false, features = ["crc32fast"] }
 rarena-allocator = { version = "0.4", default-features = false }
 viewit = "0.1.5"
 

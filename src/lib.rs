@@ -29,6 +29,7 @@ pub use dbutils as utils;
 #[doc(inline)]
 pub use dbutils::buffer::VacantBuffer;
 pub use dbutils::checksum;
+pub use dbutils::types::{SliceRef, Str, Type, TypeRef};
 
 /// Error types.
 pub mod error;
